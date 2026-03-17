@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import Layout from './components/Layout'
 import Landing from './pages/Landing'
 import Debugger from './pages/Debugger'
+import Dashboard from './pages/Dashboard'
 import Loopholes from './pages/Loopholes'
 import Audit from './pages/Audit'
 import Regulations from './pages/Regulations'
@@ -24,7 +25,7 @@ export default function App() {
       <Routes>
         <Route path="/" element={<Landing />} />
         <Route element={<Layout />}>
-          <Route path="/dashboard" element={<Placeholder title="Dashboard" emoji="📊" phase="Phase 1" />} />
+          <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/debugger" element={<Debugger />} />
           <Route path="/audit" element={<Audit />} />
           <Route path="/regulations" element={<Regulations />} />
