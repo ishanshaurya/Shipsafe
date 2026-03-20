@@ -1,9 +1,10 @@
-import { Outlet, NavLink, useLocation } from 'react-router-dom'
+import { Outlet, NavLink, Link, useLocation } from 'react-router-dom'
 import {
   LayoutDashboard, Bug, Search, Scale, KeyRound,
   Rocket, FlaskConical, Shield, Bell, Menu, X
 } from 'lucide-react'
 import { useState } from 'react'
+import { useAuth } from '../hooks/useAuth'
 
 // ─── Navigation items ─────────────────────────────────────
 // Each item maps to a route in App.jsx
@@ -30,6 +31,7 @@ const NAV_ITEMS = [
 export default function Layout() {
   const location = useLocation()
   const [sidebarOpen, setSidebarOpen] = useState(true)
+  const { user, signOut } = useAuth()
 
   return (
     <div style={{ display: 'flex', minHeight: '100vh', background: 'var(--bg-primary)' }}>
@@ -197,35 +199,39 @@ export default function Layout() {
             </span>
           </div>
 
-          {/* Right side - alerts + status */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-            <button style={{
-              background: 'none',
-              border: '1px solid var(--border-default)',
-              borderRadius: 6,
-              color: 'var(--text-muted)',
-              cursor: 'pointer',
-              padding: '5px 10px',
-              fontFamily: 'var(--font-mono)',
-              fontSize: 11,
-              display: 'flex',
-              alignItems: 'center',
-              gap: 6,
-            }}>
-              <Bell size={13} />
-              Alerts
-            </button>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 10, color: 'var(--text-dimmed)' }}>
-              <div style={{
-                width: 6,
-                height: 6,
-                background: 'var(--green)',
-                borderRadius: '50%',
-              }}
-                className="animate-pulse-slow"
-              />
-              Live
-            </div>
+          {/* Right side - user auth */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            {user ? (
+              <>
+                <span style={{ fontSize: 11, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>
+                  {user.email}
+                </span>
+                <button onClick={signOut} style={{
+                  background: 'none',
+                  border: '1px solid var(--border-default)',
+                  borderRadius: 6,
+                  color: 'var(--text-muted)',
+                  cursor: 'pointer',
+                  padding: '5px 10px',
+                  fontFamily: 'var(--font-mono)',
+                  fontSize: 11,
+                }}>
+                  Sign Out
+                </button>
+              </>
+            ) : (
+              <Link to="/login" style={{
+                border: '1px solid var(--border-default)',
+                borderRadius: 6,
+                color: 'var(--text-muted)',
+                padding: '5px 10px',
+                fontFamily: 'var(--font-mono)',
+                fontSize: 11,
+                textDecoration: 'none',
+              }}>
+                Sign In
+              </Link>
+            )}
           </div>
         </header>
 
