@@ -36,16 +36,23 @@ export function useReport() {
     setReportError(null)
     setReportUrl(null)
 
-    const slug = makeSlug()
+    let data, error
 
-    const { data, error } = await saveReport(
-      user.id,
-      slug,
-      title || `${scanType} scan`,
-      scanType,
-      resultData,
-      true
-    )
+    // Retry up to 3 times on slug collision
+    for (let attempt = 0; attempt < 3; attempt++) {
+      const slug = makeSlug()
+      ;({ data, error } = await saveReport(
+        user.id,
+        slug,
+        title || `${scanType} scan`,
+        scanType,
+        resultData,
+        true
+      ))
+
+      // 23505 = Supabase unique constraint violation — try a new slug
+      if (!error || error.code !== "23505") break
+    }
 
     if (error) {
       setReportError("Failed to save report. Try again.")
