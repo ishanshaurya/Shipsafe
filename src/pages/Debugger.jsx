@@ -1,5 +1,5 @@
 import { useState } from "react"
-import { Bug, Play, Loader2, AlertTriangle, AlertCircle, Info, CheckCircle, ChevronDown, ChevronRight, Copy, Check, Lock, Code2, Sparkles } from "lucide-react"
+import { Bug, Play, Loader2, AlertTriangle, AlertCircle, Info, CheckCircle, ChevronDown, ChevronRight, Copy, Check, Lock, Code2, Sparkles, Github, Star } from "lucide-react"
 import { callAI, extractScore } from "../services/scanService"
 import { saveScan } from "../services/supabaseService"
 import { useAuth } from "../hooks/useAuth"
@@ -7,6 +7,14 @@ import { useIsMobile } from "../hooks/useIsMobile"
 import ReportButton from "../components/ReportButton"
 
 const LANGS = ["JavaScript","TypeScript","Python","Java","Go","Rust","C++","PHP","Ruby","SQL"]
+
+function mapLanguage(ghLang) {
+  if (!ghLang) return "JavaScript"
+  const exact = LANGS.find(l => l.toLowerCase() === ghLang.toLowerCase())
+  if (exact) return exact
+  const map = { "Kotlin": "Java", "Scala": "Java", "Swift": "JavaScript", "C": "C++", "C#": "JavaScript", "Shell": "JavaScript" }
+  return map[ghLang] || "JavaScript"
+}
 const SEV = {
   critical: { color: "#ef4444", bg: "rgba(239,68,68,0.06)", border: "rgba(239,68,68,0.15)", icon: AlertCircle, label: "CRITICAL" },
   high:     { color: "#f97316", bg: "rgba(249,115,22,0.06)", border: "rgba(249,115,22,0.15)", icon: AlertTriangle, label: "HIGH" },
@@ -107,8 +115,31 @@ export default function Debugger() {
   const [error, setError] = useState(null)
   const [exp, setExp] = useState({})
   const [copied, setCopied] = useState(false)
+  const [githubUrl, setGithubUrl] = useState("")
+  const [githubLoading, setGithubLoading] = useState(false)
+  const [githubInfo, setGithubInfo] = useState(null)
+  const [githubError, setGithubError] = useState(null)
   const toggle = (id) => setExp(p => ({ ...p, [id]: !p[id] }))
   const lc = code.split("\n").length
+
+  const fetchFromGitHub = async () => {
+    if (!githubUrl.trim() || githubLoading) return
+    setGithubLoading(true); setGithubError(null); setGithubInfo(null)
+    try {
+      const res = await fetch("/api/github", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ url: githubUrl.trim() }) })
+      const data = await res.json()
+      if (!res.ok) { setGithubError(data.error || "Failed to fetch repo"); return }
+      setCode(data.code)
+      setLang(mapLanguage(data.repo.language))
+      setCtx(`${data.repo.name}${data.repo.description ? " - " + data.repo.description : ""}`)
+      setGithubInfo(data)
+      setResult(null); setError(null); setExp({})
+    } catch {
+      setGithubError("Network error — could not reach GitHub")
+    } finally {
+      setGithubLoading(false)
+    }
+  }
 
   const runScan = async () => {
     if (!code.trim()||loading) return
@@ -148,6 +179,40 @@ export default function Debugger() {
 
         {/* LEFT — Input */}
         <div>
+          {/* GitHub fetch */}
+          <div style={{ marginBottom:10 }}>
+            <div style={{ display:"flex", gap:8, alignItems:"center" }}>
+              <div style={{ display:"flex", alignItems:"center", flex:1, gap:0, background:"#0a0a0a", border:"1px solid rgba(255,255,255,0.08)", borderRadius:7, overflow:"hidden" }}>
+                <div style={{ padding:"0 10px", borderRight:"1px solid rgba(255,255,255,0.06)", display:"flex", alignItems:"center" }}>
+                  <Github size={13} color="rgba(255,255,255,0.25)"/>
+                </div>
+                <input
+                  value={githubUrl}
+                  onChange={e => { setGithubUrl(e.target.value); setGithubError(null) }}
+                  onKeyDown={e => e.key === "Enter" && fetchFromGitHub()}
+                  placeholder="Paste GitHub repo URL to auto-scan"
+                  style={{ flex:1, background:"transparent", border:"none", outline:"none", color:"rgba(255,255,255,0.7)", fontSize:12, padding:"8px 10px", fontFamily:"inherit" }}
+                />
+              </div>
+              <button onClick={fetchFromGitHub} disabled={githubLoading || !githubUrl.trim()} style={{ background: githubLoading || !githubUrl.trim() ? "rgba(255,255,255,0.04)" : "rgba(255,255,255,0.08)", border:"1px solid rgba(255,255,255,0.1)", borderRadius:7, color: githubLoading || !githubUrl.trim() ? "rgba(255,255,255,0.2)" : "rgba(255,255,255,0.7)", fontSize:12, padding:"8px 14px", cursor: githubLoading || !githubUrl.trim() ? "not-allowed" : "pointer", whiteSpace:"nowrap", display:"flex", alignItems:"center", gap:6, fontFamily:"inherit" }}>
+                {githubLoading ? <><Loader2 size={11} style={{ animation:"spin 1s linear infinite" }}/> Fetching...</> : "Fetch & Scan"}
+              </button>
+            </div>
+            {githubError && (
+              <div style={{ marginTop:6, padding:"8px 12px", borderRadius:7, background:"rgba(239,68,68,0.06)", border:"1px solid rgba(239,68,68,0.15)", display:"flex", alignItems:"center", gap:8, justifyContent:"space-between" }}>
+                <span style={{ fontSize:11, color:"#ef4444" }}>{githubError}</span>
+                <button onClick={() => setGithubError(null)} style={{ background:"none", border:"none", color:"rgba(255,255,255,0.25)", cursor:"pointer", fontSize:14, lineHeight:1 }}>×</button>
+              </div>
+            )}
+            {githubInfo && (
+              <div style={{ marginTop:6, padding:"8px 12px", borderRadius:7, background:"rgba(255,255,255,0.03)", border:"1px solid rgba(255,255,255,0.07)", display:"flex", alignItems:"center", gap:8 }}>
+                <Github size={11} color="rgba(255,255,255,0.3)"/>
+                <span style={{ fontSize:11, color:"rgba(255,255,255,0.5)", flex:1 }}>Fetched {githubInfo.fileCount} files ({githubInfo.totalLines} lines) from <span style={{ color:"rgba(255,255,255,0.7)" }}>{githubInfo.repo.name}</span></span>
+                <span style={{ fontSize:11, color:"rgba(255,255,255,0.3)", display:"flex", alignItems:"center", gap:3 }}><Star size={10} color="#eab308" fill="#eab308"/> {githubInfo.repo.stars.toLocaleString()}</span>
+              </div>
+            )}
+          </div>
+
           <div style={{ display:"flex", gap:8, alignItems:"center", marginBottom:10 }}>
             <select value={lang} onChange={e=>setLang(e.target.value)} style={{ background:"#0a0a0a", border:"1px solid rgba(255,255,255,0.08)", borderRadius:7, color:"rgba(255,255,255,0.6)", fontSize:12, padding:"7px 10px", outline:"none", fontFamily:"inherit" }}>
               {LANGS.map(l=><option key={l} value={l}>{l}</option>)}
