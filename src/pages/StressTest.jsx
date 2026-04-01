@@ -1,10 +1,13 @@
 import { useState } from "react"
+import { Link } from "react-router-dom"
 import { FlaskConical, Play, Loader2, AlertTriangle, CheckCircle, Users, Server, Database, Wifi, Zap, Clock } from "lucide-react"
 import { saveScan } from "../services/supabaseService"
 import { extractScore } from "../services/scanService"
 import { useAuth } from "../hooks/useAuth"
 import { useIsMobile } from "../hooks/useIsMobile"
 import ReportButton from "../components/ReportButton"
+import NextSteps from "../components/NextSteps"
+import { getSuggestions } from "../utils/crossToolSuggestions"
 
 /* ═══════════════════════════════════════════════════════════
    STRESS TESTER — ShipSafe Stage 3
@@ -109,13 +112,15 @@ export default function StressTest() {
   const [stack, setStack] = useState("")
   const [loading, setLoading] = useState(false)
   const [result, setResult] = useState(null)
+  const [suggestions, setSuggestions] = useState([])
 
   const runTest = async () => {
     if (!stack.trim() || loading) return
-    setLoading(true); setResult(null)
+    setLoading(true); setResult(null); setSuggestions([])
     await new Promise(r => setTimeout(r, 2000 + Math.random() * 1000))
     const stressResult = getMockStressTest(stack)
     setResult(stressResult)
+    setSuggestions(getSuggestions("stress-test", stressResult))
     if (user) {
       saveScan(user.id, "stress-test", stack.slice(0, 500), stressResult, extractScore("stress-test", stressResult))
         .then(({ error }) => { if (error) console.error("Failed to save scan:", error.message) })
@@ -289,6 +294,8 @@ export default function StressTest() {
           )}
         </div>
       </div>
+
+      <NextSteps suggestions={suggestions} />
     </div>
   )
 }

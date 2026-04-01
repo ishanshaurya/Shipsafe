@@ -1,10 +1,13 @@
 import { useState } from "react"
+import { Link } from "react-router-dom"
 import { KeyRound, Search, Loader2, AlertTriangle, ChevronDown, ChevronRight, Globe, Shield, Scale, FileWarning, Lightbulb, TrendingUp } from "lucide-react"
 import { saveScan } from "../services/supabaseService"
 import { extractScore } from "../services/scanService"
 import { useAuth } from "../hooks/useAuth"
 import { useIsMobile } from "../hooks/useIsMobile"
 import ReportButton from "../components/ReportButton"
+import NextSteps from "../components/NextSteps"
+import { getSuggestions } from "../utils/crossToolSuggestions"
 
 /* ═══════════════════════════════════════════════════════════
    LOOPHOLE FINDER — ShipSafe's #2 Feature
@@ -183,6 +186,7 @@ export default function Loopholes() {
   const [selected, setSelected] = useState([])
   const [loading, setLoading] = useState(false)
   const [result, setResult] = useState(null)
+  const [suggestions, setSuggestions] = useState([])
   const [exp, setExp] = useState({})
 
   const toggleCountry = (id) => {
@@ -196,9 +200,11 @@ export default function Loopholes() {
     setLoading(true)
     setResult(null)
     setExp({})
+    setSuggestions([])
     await new Promise((r) => setTimeout(r, 1500 + Math.random() * 1000))
     const analysis = getMockAnalysis(description, selected)
     setResult(analysis)
+    setSuggestions(getSuggestions("loopholes", analysis))
     if (user) {
       saveScan(user.id, "loopholes", description.slice(0, 500), analysis, extractScore("loopholes", analysis))
         .then(({ error }) => { if (error) console.error("Failed to save scan:", error.message) })
@@ -394,6 +400,8 @@ export default function Loopholes() {
           )}
         </div>
       </div>
+
+      <NextSteps suggestions={suggestions} />
     </div>
   )
 }

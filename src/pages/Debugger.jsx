@@ -1,10 +1,13 @@
 import { useState } from "react"
+import { Link } from "react-router-dom"
 import { Bug, Play, Loader2, AlertTriangle, AlertCircle, Info, CheckCircle, ChevronDown, ChevronRight, Copy, Check, Lock, Code2, Sparkles, Github, Star } from "lucide-react"
 import { callAI, extractScore } from "../services/scanService"
 import { saveScan } from "../services/supabaseService"
 import { useAuth } from "../hooks/useAuth"
 import { useIsMobile } from "../hooks/useIsMobile"
 import ReportButton from "../components/ReportButton"
+import NextSteps from "../components/NextSteps"
+import { getSuggestions } from "../utils/crossToolSuggestions"
 
 const LANGS = ["JavaScript","TypeScript","Python","Java","Go","Rust","C++","PHP","Ruby","SQL"]
 
@@ -112,6 +115,7 @@ export default function Debugger() {
   const [ctx, setCtx] = useState("")
   const [loading, setLoading] = useState(false)
   const [result, setResult] = useState(null)
+  const [suggestions, setSuggestions] = useState([])
   const [error, setError] = useState(null)
   const [exp, setExp] = useState({})
   const [copied, setCopied] = useState(false)
@@ -143,11 +147,12 @@ export default function Debugger() {
 
   const runScan = async () => {
     if (!code.trim()||loading) return
-    setLoading(true); setResult(null); setError(null); setExp({})
+    setLoading(true); setResult(null); setError(null); setExp({}); setSuggestions([])
     try {
       const { content:parsed, error:aiError } = await callAI("debugger", { code, language:lang, context:ctx })
       if (aiError) { setError(aiError); return }
       setResult(parsed)
+      setSuggestions(getSuggestions("debugger", parsed))
       if (user) saveScan(user.id,"debugger",code,parsed,extractScore("debugger",parsed)).then(({error})=>{ if(error) console.error("Save failed:",error.message) })
       const ae={}
       parsed.issues.forEach(i=>{ if(i.severity==="critical"||i.severity==="high") ae[i.id]=true })
@@ -327,6 +332,8 @@ export default function Debugger() {
           )}
         </div>
       </div>
+
+      <NextSteps suggestions={suggestions} />
     </div>
   )
 }

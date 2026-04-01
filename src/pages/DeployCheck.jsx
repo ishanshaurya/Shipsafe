@@ -1,10 +1,13 @@
 import { useState } from "react"
+import { Link } from "react-router-dom"
 import { Rocket, Play, Loader2, CheckCircle, AlertTriangle, AlertCircle, X as XIcon, ChevronDown, ChevronRight, Server, Shield, Globe, Key, Database, Wifi } from "lucide-react"
 import { saveScan } from "../services/supabaseService"
 import { extractScore } from "../services/scanService"
 import { useAuth } from "../hooks/useAuth"
 import { useIsMobile } from "../hooks/useIsMobile"
 import ReportButton from "../components/ReportButton"
+import NextSteps from "../components/NextSteps"
+import { getSuggestions } from "../utils/crossToolSuggestions"
 
 /* ═══════════════════════════════════════════════════════════
    DEPLOY READINESS CHECKER — ShipSafe Stage 3
@@ -129,16 +132,18 @@ export default function DeployCheck() {
   const [platform, setPlatform] = useState("vercel")
   const [loading, setLoading] = useState(false)
   const [result, setResult] = useState(null)
+  const [suggestions, setSuggestions] = useState([])
   const [exp, setExp] = useState({})
 
   const toggle = (id) => setExp(p => ({ ...p, [id]: !p[id] }))
 
   const runCheck = async () => {
     if (!config.trim() || loading) return
-    setLoading(true); setResult(null); setExp({})
+    setLoading(true); setResult(null); setExp({}); setSuggestions([])
     await new Promise(r => setTimeout(r, 1200 + Math.random() * 800))
     const res = getMockDeployCheck(config, platform)
     setResult(res)
+    setSuggestions(getSuggestions("deploy-check", res))
     if (user) {
       saveScan(user.id, "deploy-check", config.slice(0, 500), res, extractScore("deploy-check", res))
         .then(({ error }) => { if (error) console.error("Failed to save scan:", error.message) })
@@ -340,6 +345,8 @@ export default function DeployCheck() {
           )}
         </div>
       </div>
+
+      <NextSteps suggestions={suggestions} />
     </div>
   )
 }

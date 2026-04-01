@@ -1,10 +1,13 @@
 import { useState } from "react"
+import { Link } from "react-router-dom"
 import { Search, Play, Loader2, AlertTriangle, CheckCircle, ChevronDown, ChevronRight, FileCode, Shield, Zap, TestTube, Lock, PackageCheck, Sparkles, Github, Star } from "lucide-react"
 import { saveScan } from "../services/supabaseService"
 import { extractScore } from "../services/scanService"
 import { useAuth } from "../hooks/useAuth"
 import { useIsMobile } from "../hooks/useIsMobile"
 import ReportButton from "../components/ReportButton"
+import NextSteps from "../components/NextSteps"
+import { getSuggestions } from "../utils/crossToolSuggestions"
 
 /* ═══════════════════════════════════════════════════════════
    VIBE-CODE AUDIT — ShipSafe's #3 Feature
@@ -231,6 +234,7 @@ export default function Audit() {
   const [code, setCode] = useState("")
   const [loading, setLoading] = useState(false)
   const [result, setResult] = useState(null)
+  const [suggestions, setSuggestions] = useState([])
   const [exp, setExp] = useState({})
   const [filter, setFilter] = useState("all")
   const [githubUrl, setGithubUrl] = useState("")
@@ -261,10 +265,11 @@ export default function Audit() {
 
   const runAuditWithCode = async (codeToAudit) => {
     if (!codeToAudit?.trim() || loading) return
-    setLoading(true); setResult(null); setExp({})
+    setLoading(true); setResult(null); setExp({}); setSuggestions([])
     await new Promise(r => setTimeout(r, 1800 + Math.random() * 1000))
     const audit = getMockAudit(codeToAudit)
     setResult(audit)
+    setSuggestions(getSuggestions("audit", audit))
     if (user) {
       saveScan(user.id, "audit", codeToAudit.slice(0, 500), audit, extractScore("audit", audit))
         .then(({ error }) => { if (error) console.error("Failed to save scan:", error.message) })
@@ -280,9 +285,11 @@ export default function Audit() {
     setLoading(true)
     setResult(null)
     setExp({})
+    setSuggestions([])
     await new Promise(r => setTimeout(r, 1800 + Math.random() * 1000))
     const audit = getMockAudit(code)
     setResult(audit)
+    setSuggestions(getSuggestions("audit", audit))
     if (user) {
       saveScan(user.id, "audit", code.slice(0, 500), audit, extractScore("audit", audit))
         .then(({ error }) => { if (error) console.error("Failed to save scan:", error.message) })
@@ -486,6 +493,8 @@ export default function Audit() {
           )}
         </div>
       </div>
+
+      <NextSteps suggestions={suggestions} />
     </div>
   )
 }
