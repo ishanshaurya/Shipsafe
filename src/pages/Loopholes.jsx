@@ -230,7 +230,6 @@ export default function Loopholes() {
           <h1 style={{ fontSize: 20, fontWeight: 800, color: "rgba(255,255,255,0.85)", letterSpacing: "-0.02em" }}>Loophole Finder</h1>
           <p style={{ fontSize: 11, color: "rgba(255,255,255,0.3)", marginTop: 2 }}>
             Describe your AI system → select countries → find regulatory grey areas
-            <span style={{ color: "#34d399", marginLeft: 8 }}>● Live AI</span>
           </p>
         </div>
       </div>

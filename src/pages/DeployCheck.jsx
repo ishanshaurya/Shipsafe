@@ -169,12 +169,8 @@ export default function DeployCheck() {
         </div>
         <div>
           <h1 style={{ fontSize: 20, fontWeight: 800, color: "rgba(255,255,255,0.85)", margin: 0, letterSpacing: "-0.02em" }}>Deploy Readiness Checker</h1>
-          <p style={{ fontSize: 12, color: "rgba(255,255,255,0.3)", margin: "3px 0 0", display: "flex", alignItems: "center", gap: 8 }}>
+          <p style={{ fontSize: 12, color: "rgba(255,255,255,0.3)", margin: "3px 0 0" }}>
             Describe your setup → Validate security, config & platform readiness
-            <span style={{ display: "flex", alignItems: "center", gap: 4, color: "#34d399" }}>
-              <span style={{ width: 5, height: 5, borderRadius: "50%", background: "#34d399", display: "inline-block" }} />
-              Live AI
-            </span>
           </p>
         </div>
       </div>

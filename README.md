@@ -60,7 +60,7 @@ Track all your scans in one place. Shows scan history, scores, issue counts, and
 | **Frontend** | React 19 + Vite + React Router |
 | **Styling** | Tailwind CSS + custom dark theme |
 | **Backend/DB** | Supabase (Auth + PostgreSQL + Row Level Security) |
-| **AI Engine** | Google Gemini 2.5 Flash (primary) + Groq LLaMA 3.3 70B (fallback) |
+| **AI Engine** | Google Gemini 2.5 Flash |
 | **Hosting** | Vercel (free tier) |
 | **API Security** | Vercel Serverless Functions (API keys never reach the browser) |
 
@@ -74,17 +74,12 @@ Track all your scans in one place. Shows scan history, scores, issue counts, and
 │   (Vite + React  │         │  (Vercel          │         │  Flash       │
 │    Router)       │◀──JSON──│   Serverless)     │◀──────  │              │
 └──────────────────┘         └──────────────────┘         └──────────────┘
-        │                            │                     ┌──────────────┐
-        │                            └─── fallback ──────▶ │  Groq LLaMA  │
-        │                                                  │  3.3 70B     │
-        │                                                  └──────────────┘
         │ if (user logged in)
         └──── save scan ────▶  Supabase (PostgreSQL + RLS)
 ```
 
 **Key design decisions:**
 - **Serverless proxy pattern** — React calls `/api/claude`, the serverless function adds the API key and forwards to Gemini. API keys never appear in frontend code.
-- **Automatic fallback** — If Gemini fails, the proxy automatically tries Groq. No frontend changes needed.
 - **Service layer** — `scanService.js` centralizes all AI calls. One function (`callAI`) handles prompt building, fetching, JSON parsing, and validation for all 5 tools.
 - **Row Level Security** — Supabase RLS ensures users can only see their own scan history.
 
@@ -96,7 +91,6 @@ Track all your scans in one place. Shows scan history, scores, issue counts, and
 - Node.js 18+
 - A [Supabase](https://supabase.com) project (free tier)
 - A [Google AI Studio](https://aistudio.google.com) API key (free tier)
-- Optional: A [Groq](https://console.groq.com) API key for fallback (free tier)
 
 ### Setup
 
@@ -117,10 +111,9 @@ Add your keys to `.env.local`:
 VITE_SUPABASE_URL=your_supabase_url
 VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
 GEMINI_API_KEY=your_gemini_key
-GROQ_API_KEY=your_groq_key          # optional fallback
 ```
 
-> **Note:** `GEMINI_API_KEY` and `GROQ_API_KEY` have no `VITE_` prefix — they run server-side only and are never exposed to the browser.
+> **Note:** `GEMINI_API_KEY` has no `VITE_` prefix — it runs server-side only and is never exposed to the browser.
 
 ### Run locally
 
@@ -151,7 +144,7 @@ Add environment variables in Vercel dashboard → Settings → Environment Varia
 ```
 shipsafe/
 ├── api/
-│   └── claude.js              # Serverless proxy → Gemini / Groq
+│   └── claude.js              # Serverless proxy → Gemini
 ├── src/
 │   ├── components/
 │   │   └── Layout.jsx         # Shared navbar + sidebar + dark theme
@@ -202,7 +195,6 @@ All tables use **Row Level Security (RLS)** — users can only access their own 
 | `VITE_SUPABASE_URL` | Browser | Supabase project URL |
 | `VITE_SUPABASE_ANON_KEY` | Browser | Supabase public key (safe to expose — RLS protects data) |
 | `GEMINI_API_KEY` | Server only | Google Gemini API key |
-| `GROQ_API_KEY` | Server only | Groq API key (optional fallback) |
 
 ---
 
@@ -215,12 +207,12 @@ All tables use **Row Level Security (RLS)** — users can only access their own 
 - [x] Stress Tester with tier-based predictions
 - [x] Supabase Auth (email + GitHub)
 - [x] Scan history dashboard
-- [x] Groq fallback API
 - [x] Mobile responsive
+- [ ] Groq fallback API
 - [ ] Public shareable reports (/report/:id)
 - [ ] PDF export for reports
 - [ ] Real regulation data API integration
-- [ ] Rate limiting on AI proxy
+- [x] Rate limiting on AI proxy
 
 ---
 

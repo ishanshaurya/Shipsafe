@@ -12,8 +12,9 @@
 
 // ─────────────────────────────────────────────
 // SYSTEM PROMPTS
-// Centralized here (not in the proxy) so the frontend
-// controls what each tool asks for. The proxy just forwards.
+// Kept here for client-side tool validation only.
+// The proxy selects the actual system prompt server-side
+// based on the tool name — these strings are NOT sent to the server.
 // ─────────────────────────────────────────────
 
 const SYSTEM_PROMPTS = {
@@ -309,7 +310,7 @@ export async function callAIStream(tool, payload, onChunk) {
     const response = await fetch("/api/claude", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ tool, systemPrompt, userPrompt, stream: true }),
+      body: JSON.stringify({ tool, userPrompt, stream: true }),
     })
 
     if (!response.ok) {
@@ -399,11 +400,7 @@ export async function callAI(tool, payload) {
     const response = await fetch("/api/claude", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        tool,
-        systemPrompt,   // proxy forwards this to Gemini's system_instruction
-        userPrompt,     // proxy forwards this to Gemini's contents
-      }),
+      body: JSON.stringify({ tool, userPrompt }),
     })
 
     if (!response.ok) {
