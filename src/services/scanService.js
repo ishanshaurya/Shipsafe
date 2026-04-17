@@ -1,6 +1,7 @@
 // src/services/scanService.js
 //
 // THE ONLY FILE IN THE APP THAT CALLS /api/claude.
+import { MOCK_REGULATIONS, mockRegulationResult } from "../data/mockResults.js"
 //
 // Every tool calls callAI(prompt, options) — one function, one place.
 // If the proxy URL changes, the request format changes, or we swap AI
@@ -439,5 +440,134 @@ export async function callAI(tool, payload) {
   } catch (err) {
     console.error("[scanService] callAI threw:", err)
     return { content: null, error: err.message || "Unexpected error. Please try again." }
+  }
+}
+
+// ─────────────────────────────────────────────
+// REGULATIONS FETCHER
+// ─────────────────────────────────────────────
+
+const _regulationsCache = new Map()
+
+function isValidUrl(str) {
+  try { new URL(str); return true } catch { return false }
+}
+
+function normalizeRegulation(r) {
+  return {
+    name: r.name || "Unknown Regulation",
+    country: r.country || "Unknown",
+    year: r.year || null,
+    status: r.status || "Unknown",
+    summary: r.summary || "No summary available",
+    source_url: isValidUrl(r.source_url) ? r.source_url : null,
+    sectors: Array.isArray(r.sectors) ? r.sectors : [],
+    risk: {
+      description: r.risk?.description || "Not specified",
+      severity: ["High", "Medium", "Low"].includes(r.risk?.severity) ? r.risk.severity : "Medium",
+      who_is_at_risk: Array.isArray(r.risk?.who_is_at_risk) ? r.risk.who_is_at_risk : [],
+    },
+    developer_checklist: Array.isArray(r.developer_checklist) ? r.developer_checklist : [],
+  }
+}
+
+const REGULATIONS_SYSTEM_PROMPT = `You are a global AI regulation expert. Return ONLY valid JSON, no markdown, no backticks, no explanation. Only include regulations you are confident are real. If unsure, omit it. Return maximum 4 regulations. Each summary max 2 sentences. Checklist max 4 items. Checklist items must be actionable and testable (e.g. 'Add watermark to AI-generated media'), never generic advice like 'ensure compliance'.`
+
+/**
+ * Fetch regulations relevant to a topic via AI.
+ * Results are cached in-memory for the session.
+ *
+ * @param {string} topic - e.g. "facial recognition", "healthcare AI", "EU"
+ * @returns {Array} normalized regulation objects (falls back to MOCK_REGULATIONS on any error)
+ */
+export async function fetchRegulations(topic) {
+  const key = topic.trim().toLowerCase()
+
+  if (_regulationsCache.has(key)) {
+    return _regulationsCache.get(key)
+  }
+
+  try {
+    const response = await fetch("/api/claude", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        tool: "regulations",
+        systemPrompt: REGULATIONS_SYSTEM_PROMPT,
+        userPrompt: `Return regulations for this topic as JSON matching this exact shape:
+{
+  "topic": "<topic>",
+  "regulations": [
+    {
+      "name": string,
+      "country": string,
+      "year": number | null,
+      "status": "Active" | "Draft" | "Proposed" | "Repealed" | "Unknown",
+      "summary": string (max 2 sentences),
+      "source_url": string (real URL or omit),
+      "sectors": string[],
+      "risk": {
+        "description": string,
+        "severity": "High" | "Medium" | "Low",
+        "who_is_at_risk": string[]
+      },
+      "developer_checklist": string[] (max 4 items, actionable)
+    }
+  ],
+  "country_coverage": {
+    "regulated": string[],
+    "draft": string[],
+    "unregulated": string[]
+  },
+  "overall_severity": "High" | "Medium" | "Low"
+}
+
+Topic: ${topic}`,
+      }),
+    })
+
+    if (!response.ok) {
+      console.error("[scanService] fetchRegulations server error:", response.status)
+      return mockRegulationResult
+    }
+
+    const data = await response.json()
+    let raw = (data.content || "").replace(/```json\s*/g, "").replace(/```\s*/g, "").trim()
+
+    let parsed
+    try {
+      parsed = JSON.parse(raw)
+    } catch {
+      console.error("[scanService] fetchRegulations JSON parse failed:", raw.slice(0, 300))
+      return mockRegulationResult
+    }
+
+    // Accept both envelope shape { regulations: [...] } and bare array (graceful fallback)
+    const rawRegs = Array.isArray(parsed) ? parsed : (Array.isArray(parsed.regulations) ? parsed.regulations : null)
+    if (!rawRegs) {
+      console.error("[scanService] fetchRegulations: no regulations array in response")
+      return mockRegulationResult
+    }
+
+    // Deduplicate by name, normalize every item
+    const seen = new Map()
+    for (const item of rawRegs) {
+      const nameKey = (item.name || "").trim().toLowerCase()
+      if (nameKey && !seen.has(nameKey)) {
+        seen.set(nameKey, normalizeRegulation(item))
+      }
+    }
+
+    const result = {
+      regulations: Array.from(seen.values()),
+      country_coverage: parsed.country_coverage ?? null,
+      overall_severity: parsed.overall_severity ?? null,
+    }
+    _regulationsCache.set(key, result)
+    return result
+
+  } catch (err) {
+    console.error("[scanService] fetchRegulations threw:", err)
+    return mockRegulationResult
   }
 }
