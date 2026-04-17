@@ -1,292 +1,462 @@
-import { useState, useMemo } from "react"
-import { Scale, Search, ChevronRight, X, Globe, BarChart3, Filter, ExternalLink } from "lucide-react"
-import { BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts"
+import { useState } from "react"
+import { Search, Scale, ExternalLink } from "lucide-react"
+import { fetchRegulations } from "../services/scanService"
+import { mockRegulationResult } from "../data/mockResults"
+import { useIsMobile } from "../hooks/useIsMobile"
 
 /* ═══════════════════════════════════════════════════════════
-   REGULATION TRACKER — Migrated into ShipSafe
-
-   Previously: standalone 1800-line artifact "RegAI"
-   Now: one feature page inside ShipSafe, matching the
-   glassmorphism theme. Data stays in-component for now,
-   will move to Supabase in a later phase.
+   AI REGULATION EXPLORER
+   Live topic queries via Gemini 2.5 Flash → fetchRegulations()
+   Fallback: mockRegulationResult (Deepfakes example)
    ═══════════════════════════════════════════════════════════ */
 
-const REGULATIONS = [
-  { id:1, name:"EU AI Act", country:"European Union", year:2024, type:"Comprehensive", status:"Enacted", sector:"Cross-sector", impact:"critical", flag:"🇪🇺", summary:"World's first comprehensive AI law with risk-tier classification. Strict rules for high-risk systems including biometrics and critical infrastructure.", penalties:"€35M or 7% global turnover", requirements:["Risk classification mandatory","High-risk AI conformity assessment","Transparency for GPAI models","Prohibited: social scoring, real-time biometrics"], source:"https://artificialintelligenceact.eu/" },
-  { id:2, name:"US Executive Order on AI Safety", country:"United States", year:2023, type:"Safety", status:"Active", sector:"Cross-sector", impact:"high", flag:"🇺🇸", summary:"Mandates safety testing for powerful AI models before deployment, watermarking of AI-generated content, and federal agency guidelines.", penalties:"Federal contract restrictions", requirements:["Dual-use foundation model reporting","Red-team testing required","NIST AI RMF alignment","Watermarking standards"], source:"https://whitehouse.gov/ai/" },
-  { id:3, name:"NIST AI Risk Management Framework", country:"United States", year:2023, type:"Framework", status:"Active", sector:"Cross-sector", impact:"medium", flag:"🇺🇸", summary:"Voluntary framework for managing AI risks across the lifecycle. De facto standard for federal AI procurement.", penalties:"Voluntary — no penalties", requirements:["GOVERN: policies & accountability","MAP: risk identification","MEASURE: risk analysis","MANAGE: risk treatment"], source:"https://nist.gov/artificial-intelligence" },
-  { id:4, name:"China Generative AI Regulations", country:"China", year:2023, type:"Generative AI", status:"Enacted", sector:"Technology", impact:"critical", flag:"🇨🇳", summary:"Requires AIGC services to register with CAC, conduct security assessments, and ensure content aligns with socialist values.", penalties:"Service suspension, fines up to ¥100K", requirements:["CAC registration mandatory","Algorithm filing required","Content filtering for harmful outputs","Real-name verification for users"], source:"" },
-  { id:5, name:"UK AI Regulatory Framework", country:"United Kingdom", year:2023, type:"Principles-based", status:"Active", sector:"Cross-sector", impact:"medium", flag:"🇬🇧", summary:"Pro-innovation, sector-led approach. Existing regulators apply AI principles rather than a single AI law.", penalties:"Varies by sector regulator", requirements:["Safety & security","Transparency & explainability","Accountability & governance","Contestability & redress"], source:"" },
-  { id:6, name:"AIDA (Bill C-27)", country:"Canada", year:2023, type:"Comprehensive", status:"Proposed", sector:"Cross-sector", impact:"high", flag:"🇨🇦", summary:"Artificial Intelligence and Data Act would regulate high-impact AI systems. Requires risk mitigation, transparency, and reporting.", penalties:"Up to CA$25M or 3% global revenue", requirements:["High-impact system designation","Risk mitigation measures","Incident reporting obligations","Plain language descriptions"], source:"" },
-  { id:7, name:"Brazil AI Bill (PL 2338/2023)", country:"Brazil", year:2024, type:"Comprehensive", status:"Proposed", sector:"Cross-sector", impact:"high", flag:"🇧🇷", summary:"Risk-based framework similar to EU AI Act. Prohibits certain AI uses, mandates human oversight, creates national AI authority.", penalties:"Up to 2% annual revenue", requirements:["Risk classification system","Prohibition on social scoring","Transparency for automated decisions","LGPD alignment"], source:"" },
-  { id:8, name:"Japan AI Guidelines", country:"Japan", year:2023, type:"Guidelines", status:"Active", sector:"Cross-sector", impact:"low", flag:"🇯🇵", summary:"Non-binding, human-centric AI principles. Agile governance approach with focus on innovation.", penalties:"Voluntary — no penalties", requirements:["Human-centric design","Privacy protection","Security","Accountability & transparency"], source:"" },
-  { id:9, name:"Singapore Model AI Governance", country:"Singapore", year:2023, type:"Framework", status:"Active", sector:"Cross-sector", impact:"low", flag:"🇸🇬", summary:"Detailed, practical guidance for deploying AI responsibly. Includes AI Verify testing toolkit.", penalties:"Voluntary — no penalties", requirements:["Internal governance structures","Risk operations management","Customer communication","AI Verify toolkit testing"], source:"" },
-  { id:10, name:"MeitY AI Advisory & Deepfake Rules", country:"India", year:2024, type:"Advisory", status:"Active", sector:"Technology", impact:"high", flag:"🇮🇳", summary:"Mandates labelling of AI-generated content, explicit approval before deploying untested AI, deepfake watermarking.", penalties:"Loss of safe-harbour; platform shutdown; criminal liability", requirements:["Label all AI-generated media","Bias testing mandatory","Deepfakes must carry AI-origin labels","Government pre-approval for untested models"], source:"https://meity.gov.in/" },
-  { id:11, name:"DPDP Act 2023", country:"India", year:2023, type:"Data Privacy", status:"Enacted", sector:"Cross-sector", impact:"critical", flag:"🇮🇳", summary:"India's Digital Personal Data Protection Act governs how AI systems collect, process, and store personal data of Indian citizens.", penalties:"Up to ₹250 crore (~$30M) per violation", requirements:["Consent-first data collection","Purpose limitation for AI data use","Data localisation for sensitive data","Children's data: parental consent mandatory"], source:"https://meity.gov.in/data-protection-framework" },
-  { id:12, name:"IndiaAI Mission", country:"India", year:2023, type:"Framework", status:"Active", sector:"Cross-sector", impact:"medium", flag:"🇮🇳", summary:"NITI Aayog's National AI Strategy guides responsible AI development through public investment and ethical guardrails.", penalties:"Voluntary — ineligibility for IndiaAI funding", requirements:["Responsible AI: fairness, accountability, transparency","IndiaAI compute access requires ethical declaration","Sector-specific guidelines for health, agri, edtech"], source:"https://indiaai.gov.in/" },
-  { id:13, name:"Australia AI Ethics Framework", country:"Australia", year:2023, type:"Framework", status:"Active", sector:"Cross-sector", impact:"low", flag:"🇦🇺", summary:"Voluntary ethics framework covering 8 principles for responsible AI.", penalties:"Voluntary — no penalties", requirements:["Human, societal & environmental wellbeing","Human-centered values","Fairness","Privacy protection & security"], source:"" },
-  { id:14, name:"Korea AI Act", country:"South Korea", year:2024, type:"Comprehensive", status:"Proposed", sector:"Cross-sector", impact:"high", flag:"🇰🇷", summary:"Proposed legislation for high-impact AI with risk-based classification. Strong focus on deepfakes and facial recognition.", penalties:"TBD", requirements:["High-impact AI notification","Disclosure requirements","Human oversight for autonomous decisions","Penalties for deepfake misuse"], source:"" },
+const ACCENT = "#38bdf8"
+
+const TOPICS = [
+  "Privacy",
+  "Deepfakes",
+  "Bias",
+  "Surveillance",
+  "CSAM",
+  "Data Retention",
+  "Algorithmic Accountability",
 ]
 
-const IMPACT_COLOR = { critical: "#ef4444", high: "#f97316", medium: "#eab308", low: "#22c55e" }
-const STATUS_COLOR = { Enacted: "#22c55e", Active: "#3b82f6", Proposed: "#f59e0b", Draft: "#a855f7" }
-const CHART_COLORS = ["#38bdf8", "#22c55e", "#f59e0b", "#ef4444", "#a855f7", "#f97316", "#06b6d4", "#84cc16"]
+const STATUS_COLOR = {
+  Active:   "#22c55e",
+  Draft:    "#eab308",
+  Proposed: "#3b82f6",
+  Repealed: "#64748b",
+  Unknown:  "#64748b",
+}
 
-const ALL_TYPES = ["All", ...new Set(REGULATIONS.map(r => r.type))]
-const ALL_STATUSES = ["All", "Enacted", "Active", "Proposed"]
-const ALL_IMPACTS = ["All", "critical", "high", "medium", "low"]
+const SEVERITY_COLOR = {
+  High:   "#ef4444",
+  Medium: "#eab308",
+  Low:    "#22c55e",
+}
 
-export default function Regulations() {
-  const [search, setSearch] = useState("")
-  const [typeFilter, setTypeFilter] = useState("All")
-  const [statusFilter, setStatusFilter] = useState("All")
-  const [impactFilter, setImpactFilter] = useState("All")
-  const [selected, setSelected] = useState(null)
-  const [view, setView] = useState("database") // database | analytics
+// ─── Sub-components ───────────────────────────────────────
 
-  const filtered = useMemo(() => {
-    return REGULATIONS.filter(r => {
-      const matchSearch = !search || r.name.toLowerCase().includes(search.toLowerCase()) || r.country.toLowerCase().includes(search.toLowerCase())
-      const matchType = typeFilter === "All" || r.type === typeFilter
-      const matchStatus = statusFilter === "All" || r.status === statusFilter
-      const matchImpact = impactFilter === "All" || r.impact === impactFilter
-      return matchSearch && matchType && matchStatus && matchImpact
-    })
-  }, [search, typeFilter, statusFilter, impactFilter])
-
-  // Analytics data
-  const byCountry = useMemo(() => {
-    const map = {}
-    REGULATIONS.forEach(r => { map[r.country] = (map[r.country] || 0) + 1 })
-    return Object.entries(map).map(([name, value]) => ({ name: name.length > 15 ? name.slice(0, 15) + "…" : name, value })).sort((a, b) => b.value - a.value)
-  }, [])
-
-  const byStatus = useMemo(() => {
-    const map = {}
-    REGULATIONS.forEach(r => { map[r.status] = (map[r.status] || 0) + 1 })
-    return Object.entries(map).map(([name, value]) => ({ name, value }))
-  }, [])
-
-  const byType = useMemo(() => {
-    const map = {}
-    REGULATIONS.forEach(r => { map[r.type] = (map[r.type] || 0) + 1 })
-    return Object.entries(map).map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value)
-  }, [])
-
-  const stats = useMemo(() => ({
-    total: REGULATIONS.length,
-    countries: new Set(REGULATIONS.map(r => r.country)).size,
-    enacted: REGULATIONS.filter(r => r.status === "Enacted").length,
-    critical: REGULATIONS.filter(r => r.impact === "critical").length,
-  }), [])
-
-  const selStyle = (val, current) => ({
-    background: val === current ? "rgba(56,189,248,0.15)" : "rgba(15,22,40,0.4)",
-    border: `1px solid ${val === current ? "rgba(56,189,248,0.3)" : "rgba(56,189,248,0.08)"}`,
-    borderRadius: 8, padding: "6px 12px", fontSize: 11, cursor: "pointer",
-    color: val === current ? "#38bdf8" : "#64748b", fontWeight: val === current ? 600 : 400, transition: "all 0.15s",
-  })
-
+function StatusBadge({ status }) {
+  const color = STATUS_COLOR[status] ?? "#64748b"
   return (
-    <div className="animate-fade-in">
-      {/* Header */}
-      <div style={{ marginBottom: 24, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-          <div style={{ width: 36, height: 36, borderRadius: 10, background: "rgba(14,165,233,0.1)", border: "1px solid rgba(14,165,233,0.2)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-            <Scale size={18} color="#0ea5e9" />
-          </div>
-          <div>
-            <h1 style={{ fontSize: 22, fontWeight: 800, color: "#f1f5f9" }}>Regulation Tracker</h1>
-            <p style={{ fontSize: 11, color: "#475569" }}>{stats.total} regulations across {stats.countries} countries • {stats.enacted} enacted • {stats.critical} critical impact</p>
-          </div>
+    <span style={{
+      fontSize: 9, fontWeight: 700, letterSpacing: "0.08em",
+      color, background: `${color}18`, padding: "3px 8px", borderRadius: 4,
+      flexShrink: 0,
+    }}>
+      {(status ?? "Unknown").toUpperCase()}
+    </span>
+  )
+}
+
+function SeverityBadge({ severity, large = false }) {
+  const color = SEVERITY_COLOR[severity] ?? "#64748b"
+  return (
+    <span style={{
+      display: "inline-block",
+      fontSize: large ? 14 : 10, fontWeight: 700, letterSpacing: "0.08em",
+      color, background: `${color}18`,
+      padding: large ? "8px 18px" : "3px 8px",
+      borderRadius: large ? 8 : 4,
+      border: `1px solid ${color}30`,
+    }}>
+      {(severity ?? "Unknown").toUpperCase()}
+    </span>
+  )
+}
+
+function SkeletonCards({ isMobile }) {
+  const Bar = ({ width, tall }) => (
+    <div style={{
+      height: tall ? 16 : 11, width: `${width}%`,
+      borderRadius: 6, background: "rgba(255,255,255,0.06)",
+      animation: "sk-pulse 1.5s ease-in-out infinite",
+    }} />
+  )
+  const SkCard = ({ lines }) => (
+    <div style={{
+      background: "#0a0a0a", border: "1px solid rgba(255,255,255,0.06)",
+      borderRadius: 12, padding: 20, display: "flex", flexDirection: "column", gap: 10,
+    }}>
+      {lines.map((w, i) => <Bar key={i} width={w} tall={i === 0} />)}
+    </div>
+  )
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+      {[0, 1].map(i => (
+        <div key={i} style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 12 }}>
+          <SkCard lines={[75, 45, 100, 60, 50]} />
+          <SkCard lines={[55, 100, 70, 40, 85]} />
         </div>
-        <div style={{ display: "flex", gap: 6 }}>
-          <button onClick={() => setView("database")} style={selStyle("database", view)}>
-            <Filter size={11} style={{ marginRight: 4 }} /> Database
-          </button>
-          <button onClick={() => setView("analytics")} style={selStyle("analytics", view)}>
-            <BarChart3 size={11} style={{ marginRight: 4 }} /> Analytics
-          </button>
+      ))}
+    </div>
+  )
+}
+
+function RegulationCard({ reg }) {
+  return (
+    <div style={{
+      background: "#0a0a0a", border: "1px solid rgba(255,255,255,0.07)",
+      borderRadius: 12, padding: 20, display: "flex", flexDirection: "column", gap: 14,
+    }}>
+      {/* Name + status */}
+      <div>
+        <div style={{ display: "flex", alignItems: "flex-start", gap: 8, flexWrap: "wrap", marginBottom: 5 }}>
+          <span style={{ fontSize: 14, fontWeight: 700, color: "rgba(255,255,255,0.85)", lineHeight: 1.4, flex: 1 }}>
+            {reg.name}
+          </span>
+          <StatusBadge status={reg.status} />
+        </div>
+        <div style={{ fontSize: 11, color: "rgba(255,255,255,0.28)" }}>
+          {reg.country}{reg.year ? ` · ${reg.year}` : ""}
         </div>
       </div>
 
-      {view === "database" ? (
-        <>
-          {/* Search + Filters */}
-          <div style={{ display: "flex", gap: 10, marginBottom: 14, flexWrap: "wrap" }}>
-            <div style={{ flex: 1, minWidth: 200, position: "relative" }}>
-              <Search size={14} color="#475569" style={{ position: "absolute", left: 12, top: 10 }} />
-              <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search regulations or countries..."
-                style={{ width: "100%", background: "rgba(15,22,40,0.6)", border: "1px solid rgba(56,189,248,0.08)", borderRadius: 8, color: "#e2e8f0", fontSize: 12, padding: "9px 12px 9px 34px", outline: "none" }} />
-            </div>
-            <select value={typeFilter} onChange={e => setTypeFilter(e.target.value)} style={{ background: "rgba(15,22,40,0.6)", border: "1px solid rgba(56,189,248,0.08)", borderRadius: 8, color: "#94a3b8", fontSize: 11, padding: "8px 12px", outline: "none" }}>
-              {ALL_TYPES.map(t => <option key={t} value={t}>{t === "All" ? "All Types" : t}</option>)}
-            </select>
-            <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)} style={{ background: "rgba(15,22,40,0.6)", border: "1px solid rgba(56,189,248,0.08)", borderRadius: 8, color: "#94a3b8", fontSize: 11, padding: "8px 12px", outline: "none" }}>
-              {ALL_STATUSES.map(s => <option key={s} value={s}>{s === "All" ? "All Statuses" : s}</option>)}
-            </select>
-            <select value={impactFilter} onChange={e => setImpactFilter(e.target.value)} style={{ background: "rgba(15,22,40,0.6)", border: "1px solid rgba(56,189,248,0.08)", borderRadius: 8, color: "#94a3b8", fontSize: 11, padding: "8px 12px", outline: "none", textTransform: "capitalize" }}>
-              {ALL_IMPACTS.map(i => <option key={i} value={i}>{i === "All" ? "All Impacts" : i}</option>)}
-            </select>
-          </div>
+      {/* Summary */}
+      <p style={{ fontSize: 12, color: "rgba(255,255,255,0.48)", lineHeight: 1.75, margin: 0 }}>
+        {reg.summary}
+      </p>
 
-          {/* Results count */}
-          <div style={{ fontSize: 11, color: "#475569", marginBottom: 10, letterSpacing: "0.08em" }}>
-            {filtered.length} REGULATION{filtered.length !== 1 ? "S" : ""} FOUND
-          </div>
-
-          {/* Regulation cards */}
-          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-            {filtered.map(reg => (
-              <div key={reg.id} onClick={() => setSelected(reg)}
-                style={{ background: "rgba(15,22,40,0.6)", border: "1px solid rgba(56,189,248,0.08)", borderRadius: 12, padding: "16px 20px", cursor: "pointer", transition: "all 0.2s", display: "flex", alignItems: "center", gap: 16 }}
-                onMouseEnter={e => { e.currentTarget.style.borderColor = "rgba(56,189,248,0.2)"; e.currentTarget.style.transform = "translateX(4px)" }}
-                onMouseLeave={e => { e.currentTarget.style.borderColor = "rgba(56,189,248,0.08)"; e.currentTarget.style.transform = "translateX(0)" }}>
-                <span style={{ fontSize: 28 }}>{reg.flag}</span>
-                <div style={{ flex: 1 }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
-                    <span style={{ fontSize: 14, fontWeight: 600, color: "#e2e8f0" }}>{reg.name}</span>
-                    <span style={{ fontSize: 9, fontWeight: 600, color: STATUS_COLOR[reg.status], background: `${STATUS_COLOR[reg.status]}15`, padding: "2px 8px", borderRadius: 4, letterSpacing: "0.05em" }}>{reg.status.toUpperCase()}</span>
-                  </div>
-                  <div style={{ fontSize: 11, color: "#64748b" }}>{reg.country} • {reg.year} • {reg.type}</div>
-                </div>
-                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                  <span style={{ fontSize: 10, fontWeight: 600, color: IMPACT_COLOR[reg.impact], background: `${IMPACT_COLOR[reg.impact]}12`, padding: "3px 10px", borderRadius: 6, letterSpacing: "0.05em", textTransform: "uppercase" }}>{reg.impact}</span>
-                  <ChevronRight size={16} color="#334155" />
-                </div>
-              </div>
-            ))}
-          </div>
-
-          {filtered.length === 0 && (
-            <div style={{ textAlign: "center", padding: 60, color: "#475569", fontSize: 13 }}>
-              No regulations match your filters. Try broadening your search.
-            </div>
-          )}
-        </>
-      ) : (
-        /* Analytics View */
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
-          {/* Stats row */}
-          <div style={{ gridColumn: "1 / -1", display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12 }}>
-            {[
-              { label: "Total Regulations", value: stats.total, color: "#38bdf8" },
-              { label: "Countries", value: stats.countries, color: "#22c55e" },
-              { label: "Enacted", value: stats.enacted, color: "#22c55e" },
-              { label: "Critical Impact", value: stats.critical, color: "#ef4444" },
-            ].map((s, i) => (
-              <div key={i} style={{ background: "rgba(15,22,40,0.6)", border: "1px solid rgba(56,189,248,0.08)", borderRadius: 12, padding: "20px", textAlign: "center" }}>
-                <div style={{ fontSize: 32, fontWeight: 800, color: s.color }}>{s.value}</div>
-                <div style={{ fontSize: 10, color: "#475569", letterSpacing: "0.08em", marginTop: 4 }}>{s.label.toUpperCase()}</div>
-              </div>
-            ))}
-          </div>
-
-          {/* By Country */}
-          <div style={{ background: "rgba(15,22,40,0.6)", border: "1px solid rgba(56,189,248,0.08)", borderRadius: 14, padding: 20 }}>
-            <div style={{ fontSize: 11, color: "#475569", letterSpacing: "0.1em", marginBottom: 16 }}>REGULATIONS BY COUNTRY</div>
-            <ResponsiveContainer width="100%" height={250}>
-              <BarChart data={byCountry} layout="vertical" margin={{ left: 0, right: 20 }}>
-                <XAxis type="number" tick={{ fontSize: 10, fill: "#475569" }} axisLine={false} tickLine={false} />
-                <YAxis type="category" dataKey="name" tick={{ fontSize: 10, fill: "#94a3b8" }} axisLine={false} tickLine={false} width={100} />
-                <Tooltip contentStyle={{ background: "#0f1623", border: "1px solid #1a2540", borderRadius: 8, fontSize: 11 }} />
-                <Bar dataKey="value" fill="#38bdf8" radius={[0, 4, 4, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-
-          {/* By Status */}
-          <div style={{ background: "rgba(15,22,40,0.6)", border: "1px solid rgba(56,189,248,0.08)", borderRadius: 14, padding: 20 }}>
-            <div style={{ fontSize: 11, color: "#475569", letterSpacing: "0.1em", marginBottom: 16 }}>BY STATUS</div>
-            <ResponsiveContainer width="100%" height={250}>
-              <PieChart>
-                <Pie data={byStatus} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={80} innerRadius={50} paddingAngle={4} strokeWidth={0}>
-                  {byStatus.map((_, i) => <Cell key={i} fill={Object.values(STATUS_COLOR)[i] || CHART_COLORS[i]} />)}
-                </Pie>
-                <Tooltip contentStyle={{ background: "#0f1623", border: "1px solid #1a2540", borderRadius: 8, fontSize: 11 }} />
-              </PieChart>
-            </ResponsiveContainer>
-            <div style={{ display: "flex", gap: 12, justifyContent: "center", flexWrap: "wrap", marginTop: 8 }}>
-              {byStatus.map((s, i) => (
-                <div key={i} style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11 }}>
-                  <div style={{ width: 8, height: 8, borderRadius: "50%", background: Object.values(STATUS_COLOR)[i] || CHART_COLORS[i] }} />
-                  <span style={{ color: "#94a3b8" }}>{s.name}</span>
-                  <span style={{ color: "#475569" }}>({s.value})</span>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* By Type */}
-          <div style={{ gridColumn: "1 / -1", background: "rgba(15,22,40,0.6)", border: "1px solid rgba(56,189,248,0.08)", borderRadius: 14, padding: 20 }}>
-            <div style={{ fontSize: 11, color: "#475569", letterSpacing: "0.1em", marginBottom: 16 }}>BY REGULATION TYPE</div>
-            <ResponsiveContainer width="100%" height={200}>
-              <BarChart data={byType} margin={{ left: 0, right: 20 }}>
-                <XAxis dataKey="name" tick={{ fontSize: 10, fill: "#94a3b8" }} axisLine={false} tickLine={false} />
-                <YAxis tick={{ fontSize: 10, fill: "#475569" }} axisLine={false} tickLine={false} />
-                <Tooltip contentStyle={{ background: "#0f1623", border: "1px solid #1a2540", borderRadius: 8, fontSize: 11 }} />
-                <Bar dataKey="value" radius={[4, 4, 0, 0]}>
-                  {byType.map((_, i) => <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />)}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
+      {/* Sector chips */}
+      {reg.sectors.length > 0 && (
+        <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+          {reg.sectors.map(s => (
+            <span key={s} style={{
+              fontSize: 9, color: ACCENT, background: `${ACCENT}12`,
+              border: `1px solid ${ACCENT}20`, padding: "2px 8px", borderRadius: 4,
+              letterSpacing: "0.04em",
+            }}>
+              {s}
+            </span>
+          ))}
         </div>
       )}
 
-      {/* Detail Panel (slide-in) */}
-      {selected && (
-        <>
-          <div onClick={() => setSelected(null)} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 199, backdropFilter: "blur(2px)" }} />
-          <div style={{ position: "fixed", top: 0, right: 0, bottom: 0, width: 480, background: "#090e18", borderLeft: "1px solid rgba(56,189,248,0.08)", zIndex: 200, overflow: "auto", padding: 32 }} className="animate-fade-in">
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "start", marginBottom: 24 }}>
-              <div>
-                <span style={{ fontSize: 36, marginRight: 12 }}>{selected.flag}</span>
-                <h2 style={{ fontSize: 20, fontWeight: 700, color: "#f1f5f9", marginTop: 8 }}>{selected.name}</h2>
-                <p style={{ fontSize: 12, color: "#64748b", marginTop: 4 }}>{selected.country} • {selected.year}</p>
-              </div>
-              <button onClick={() => setSelected(null)} style={{ background: "none", border: "none", cursor: "pointer", color: "#475569", padding: 4 }}>
-                <X size={20} />
-              </button>
-            </div>
+      {/* Source */}
+      {reg.source_url
+        ? (
+          <a href={reg.source_url} target="_blank" rel="noopener noreferrer"
+            style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 11, color: ACCENT, textDecoration: "none" }}>
+            <ExternalLink size={11} /> Official Source →
+          </a>
+        )
+        : (
+          <span style={{ fontSize: 11, color: "rgba(255,255,255,0.18)", fontStyle: "italic" }}>
+            Source unverified
+          </span>
+        )
+      }
+    </div>
+  )
+}
 
-            <div style={{ display: "flex", gap: 8, marginBottom: 20, flexWrap: "wrap" }}>
-              <span style={{ fontSize: 10, fontWeight: 600, color: STATUS_COLOR[selected.status], background: `${STATUS_COLOR[selected.status]}15`, padding: "4px 12px", borderRadius: 6 }}>{selected.status}</span>
-              <span style={{ fontSize: 10, fontWeight: 600, color: IMPACT_COLOR[selected.impact], background: `${IMPACT_COLOR[selected.impact]}12`, padding: "4px 12px", borderRadius: 6, textTransform: "uppercase" }}>{selected.impact} impact</span>
-              <span style={{ fontSize: 10, color: "#64748b", background: "rgba(15,22,40,0.6)", padding: "4px 12px", borderRadius: 6 }}>{selected.type}</span>
-              <span style={{ fontSize: 10, color: "#64748b", background: "rgba(15,22,40,0.6)", padding: "4px 12px", borderRadius: 6 }}>{selected.sector}</span>
-            </div>
+function RiskCard({ reg }) {
+  const borderColor = SEVERITY_COLOR[reg.risk.severity] ?? "#64748b"
+  return (
+    <div style={{
+      background: "#0a0a0a",
+      border: `1px solid ${borderColor}25`,
+      borderRadius: 12, padding: 20, display: "flex", flexDirection: "column", gap: 14,
+    }}>
+      {/* Label + severity */}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 8 }}>
+        <span style={{ fontSize: 10, fontWeight: 700, color: "rgba(255,255,255,0.28)", letterSpacing: "0.1em" }}>
+          REAL-WORLD RISK
+        </span>
+        <SeverityBadge severity={reg.risk.severity} />
+      </div>
 
-            <div style={{ marginBottom: 20 }}>
-              <div style={{ fontSize: 10, color: "#475569", letterSpacing: "0.1em", marginBottom: 8 }}>SUMMARY</div>
-              <p style={{ fontSize: 13, color: "#94a3b8", lineHeight: 1.8 }}>{selected.summary}</p>
-            </div>
+      {/* Description */}
+      <p style={{ fontSize: 12, color: "rgba(255,255,255,0.48)", lineHeight: 1.75, margin: 0 }}>
+        {reg.risk.description}
+      </p>
 
-            <div style={{ marginBottom: 20 }}>
-              <div style={{ fontSize: 10, color: "#475569", letterSpacing: "0.1em", marginBottom: 8 }}>PENALTIES</div>
-              <div style={{ background: "rgba(239,68,68,0.06)", border: "1px solid rgba(239,68,68,0.12)", borderRadius: 8, padding: "12px 16px", fontSize: 13, color: "#ef4444" }}>
-                {selected.penalties}
-              </div>
-            </div>
-
-            <div style={{ marginBottom: 20 }}>
-              <div style={{ fontSize: 10, color: "#475569", letterSpacing: "0.1em", marginBottom: 8 }}>KEY REQUIREMENTS</div>
-              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                {selected.requirements.map((req, i) => (
-                  <div key={i} style={{ display: "flex", gap: 8, alignItems: "flex-start", fontSize: 12, color: "#94a3b8", lineHeight: 1.6 }}>
-                    <span style={{ color: "#38bdf8", flexShrink: 0, marginTop: 2 }}>→</span> {req}
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {selected.source && (
-              <a href={selected.source} target="_blank" rel="noopener noreferrer" style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12, color: "#38bdf8", textDecoration: "none", marginTop: 8 }}>
-                <ExternalLink size={13} /> View official source
-              </a>
-            )}
+      {/* Who is at risk */}
+      {reg.risk.who_is_at_risk.length > 0 && (
+        <div>
+          <div style={{ fontSize: 9, color: "rgba(255,255,255,0.22)", letterSpacing: "0.1em", marginBottom: 8 }}>
+            WHO IS AT RISK
           </div>
-        </>
+          <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+            {reg.risk.who_is_at_risk.map(w => (
+              <span key={w} style={{
+                fontSize: 10, color: "rgba(255,255,255,0.45)",
+                background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)",
+                padding: "3px 10px", borderRadius: 4,
+              }}>
+                {w}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ─── Page ─────────────────────────────────────────────────
+
+export default function Regulations() {
+  const isMobile = useIsMobile()
+  const [query, setQuery] = useState("")
+  const [activeTopic, setActiveTopic] = useState(null)
+  const [results, setResults] = useState(null)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState(false)
+
+  const runSearch = async (overrideTopic) => {
+    const q = (overrideTopic ?? query).trim()
+    if (!q || loading) return
+    setLoading(true)
+    setError(false)
+    setResults(null)
+    const data = await fetchRegulations(q)
+    // fetchRegulations returns the exact mockRegulationResult reference on any failure
+    setError(data === mockRegulationResult)
+    setResults(data)
+    setLoading(false)
+  }
+
+  const handleChip = (topic) => {
+    setActiveTopic(topic)
+    setQuery(topic)
+    runSearch(topic)
+  }
+
+  const handleSubmit = (e) => {
+    e.preventDefault()
+    setActiveTopic(null)
+    runSearch()
+  }
+
+  // All checklist items from all regulations, deduplicated
+  const checklist = results
+    ? [...new Map(
+        results.regulations.flatMap(r => r.developer_checklist).map(item => [item, item])
+      ).values()]
+    : []
+
+  const hasInsightStrip = results && (
+    results.country_coverage || results.overall_severity || checklist.length > 0
+  )
+
+  return (
+    <div className="animate-fade-in" style={{ fontFamily: "'Inter', system-ui, sans-serif" }}>
+      <style>{`
+        @keyframes sk-pulse {
+          0%, 100% { opacity: 0.4 }
+          50%       { opacity: 0.9 }
+        }
+        @keyframes regFadeIn {
+          from { opacity: 0; transform: translateY(6px) }
+          to   { opacity: 1; transform: translateY(0) }
+        }
+        .reg-fade { animation: regFadeIn 0.25s ease }
+      `}</style>
+
+      {/* ── Header ─────────────────────────────────── */}
+      <div style={{ marginBottom: 28, display: "flex", alignItems: "center", gap: 14 }}>
+        <div style={{
+          width: 40, height: 40, borderRadius: 10, flexShrink: 0,
+          background: `${ACCENT}10`, border: `1px solid ${ACCENT}22`,
+          display: "flex", alignItems: "center", justifyContent: "center",
+        }}>
+          <Scale size={18} color={ACCENT} />
+        </div>
+        <div>
+          <h1 style={{ fontSize: 20, fontWeight: 800, color: "rgba(255,255,255,0.85)", margin: 0, letterSpacing: "-0.02em" }}>
+            AI Regulation Explorer
+          </h1>
+          <p style={{ fontSize: 12, color: "rgba(255,255,255,0.3)", margin: "3px 0 0", display: "flex", alignItems: "center", gap: 8 }}>
+            Search global AI laws by topic
+            <span style={{ display: "flex", alignItems: "center", gap: 4, color: ACCENT }}>
+              <span style={{ width: 5, height: 5, borderRadius: "50%", background: ACCENT, display: "inline-block" }} />
+              Live AI
+            </span>
+          </p>
+        </div>
+      </div>
+
+      {/* ── Search bar ─────────────────────────────── */}
+      <form onSubmit={handleSubmit} style={{ display: "flex", gap: 8, marginBottom: 12 }}>
+        <div style={{ flex: 1, position: "relative" }}>
+          <Search size={14} color="rgba(255,255,255,0.2)"
+            style={{ position: "absolute", left: 14, top: "50%", transform: "translateY(-50%)", pointerEvents: "none" }} />
+          <input
+            value={query}
+            onChange={e => { setQuery(e.target.value); setActiveTopic(null) }}
+            placeholder="e.g. facial recognition, healthcare AI, GDPR..."
+            style={{
+              width: "100%", boxSizing: "border-box",
+              background: "#0a0a0a", border: "1px solid rgba(255,255,255,0.08)",
+              borderRadius: 9, color: "rgba(255,255,255,0.75)",
+              fontSize: 13, padding: "11px 14px 11px 38px",
+              outline: "none", fontFamily: "inherit",
+            }}
+          />
+        </div>
+        <button
+          type="submit"
+          disabled={!query.trim() || loading}
+          style={{
+            padding: "11px 22px", borderRadius: 9, border: "none",
+            background: !query.trim() || loading ? "rgba(255,255,255,0.04)" : ACCENT,
+            color: !query.trim() || loading ? "rgba(255,255,255,0.2)" : "#000",
+            fontSize: 13, fontWeight: 700, cursor: !query.trim() || loading ? "not-allowed" : "pointer",
+            fontFamily: "inherit", flexShrink: 0, transition: "all 0.15s",
+          }}>
+          Search
+        </button>
+      </form>
+
+      {/* ── Topic chips ────────────────────────────── */}
+      <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 28 }}>
+        {TOPICS.map(t => {
+          const active = activeTopic === t
+          return (
+            <button key={t} onClick={() => handleChip(t)}
+              style={{
+                padding: "6px 14px", borderRadius: 20, cursor: "pointer",
+                border: `1px solid ${active ? ACCENT : "rgba(255,255,255,0.08)"}`,
+                background: active ? `${ACCENT}15` : "rgba(255,255,255,0.03)",
+                color: active ? ACCENT : "rgba(255,255,255,0.4)",
+                fontSize: 12, fontWeight: active ? 600 : 400,
+                fontFamily: "inherit", transition: "all 0.15s",
+              }}>
+              {t}
+            </button>
+          )
+        })}
+      </div>
+
+      {/* ── Loading skeletons ──────────────────────── */}
+      {loading && <SkeletonCards isMobile={isMobile} />}
+
+      {/* ── Error banner ───────────────────────────── */}
+      {!loading && error && results && (
+        <div style={{
+          background: "rgba(239,68,68,0.06)", border: "1px solid rgba(239,68,68,0.15)",
+          borderRadius: 9, padding: "10px 16px", marginBottom: 16,
+          fontSize: 12, color: "rgba(239,68,68,0.8)",
+        }}>
+          AI search failed — showing example data for "Deepfakes" instead.
+        </div>
+      )}
+
+      {/* ── Results ────────────────────────────────── */}
+      {!loading && results && (
+        <div className="reg-fade">
+          {/* Regulation + Risk card pairs */}
+          <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+            {results.regulations.map((reg, i) => (
+              <div key={i} style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 12 }}>
+                <RegulationCard reg={reg} />
+                <RiskCard reg={reg} />
+              </div>
+            ))}
+          </div>
+
+          {/* Insight strip */}
+          {hasInsightStrip && (
+            <div style={{
+              display: "grid",
+              gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr 1fr",
+              gap: isMobile ? 0 : 20,
+              marginTop: 24,
+              background: "#0a0a0a", border: "1px solid rgba(255,255,255,0.07)",
+              borderRadius: 14, padding: 20,
+            }}>
+
+              {/* Col 1 — Country Coverage */}
+              <div style={{ paddingBottom: isMobile ? 20 : 0, borderBottom: isMobile ? "1px solid rgba(255,255,255,0.06)" : "none" }}>
+                <div style={{ fontSize: 10, fontWeight: 700, color: "rgba(255,255,255,0.25)", letterSpacing: "0.1em", marginBottom: 14 }}>
+                  INDICATIVE COVERAGE (AI-ESTIMATED)
+                </div>
+                {results.country_coverage ? (
+                  <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+                    {results.country_coverage.regulated?.length > 0 && (
+                      <div>
+                        <div style={{ fontSize: 10, color: "#22c55e", fontWeight: 600, marginBottom: 7 }}>Regulated</div>
+                        {results.country_coverage.regulated.map(c => (
+                          <div key={c} style={{ display: "flex", alignItems: "center", gap: 7, fontSize: 12, color: "rgba(255,255,255,0.48)", marginBottom: 5 }}>
+                            <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#22c55e", flexShrink: 0 }} />
+                            {c}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    {results.country_coverage.draft?.length > 0 && (
+                      <div>
+                        <div style={{ fontSize: 10, color: "#eab308", fontWeight: 600, marginBottom: 7 }}>Draft / Proposed</div>
+                        {results.country_coverage.draft.map(c => (
+                          <div key={c} style={{ display: "flex", alignItems: "center", gap: 7, fontSize: 12, color: "rgba(255,255,255,0.48)", marginBottom: 5 }}>
+                            <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#eab308", flexShrink: 0 }} />
+                            {c}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    {results.country_coverage.unregulated?.length > 0 && (
+                      <div>
+                        <div style={{ fontSize: 10, color: "rgba(255,255,255,0.2)", fontWeight: 600, marginBottom: 7 }}>Unregulated</div>
+                        {results.country_coverage.unregulated.map(c => (
+                          <div key={c} style={{ display: "flex", alignItems: "center", gap: 7, fontSize: 12, color: "rgba(255,255,255,0.28)", marginBottom: 5 }}>
+                            <span style={{ width: 6, height: 6, borderRadius: "50%", background: "rgba(255,255,255,0.2)", flexShrink: 0 }} />
+                            {c}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <span style={{ fontSize: 12, color: "rgba(255,255,255,0.2)" }}>—</span>
+                )}
+              </div>
+
+              {/* Col 2 — Overall Severity */}
+              <div style={{
+                display: "flex", flexDirection: "column",
+                alignItems: isMobile ? "flex-start" : "center",
+                paddingTop: isMobile ? 20 : 0, paddingBottom: isMobile ? 20 : 0,
+                borderTop: isMobile ? "none" : "none",
+                borderBottom: isMobile ? "1px solid rgba(255,255,255,0.06)" : "none",
+                borderLeft: isMobile ? "none" : "1px solid rgba(255,255,255,0.06)",
+                borderRight: isMobile ? "none" : "1px solid rgba(255,255,255,0.06)",
+                paddingLeft: isMobile ? 0 : 20, paddingRight: isMobile ? 0 : 20,
+              }}>
+                <div style={{ fontSize: 10, fontWeight: 700, color: "rgba(255,255,255,0.25)", letterSpacing: "0.1em", marginBottom: 16 }}>
+                  OVERALL SEVERITY
+                </div>
+                {results.overall_severity
+                  ? <SeverityBadge severity={results.overall_severity} large />
+                  : <span style={{ fontSize: 12, color: "rgba(255,255,255,0.2)" }}>—</span>
+                }
+              </div>
+
+              {/* Col 3 — Developer Checklist */}
+              <div style={{ paddingTop: isMobile ? 20 : 0 }}>
+                <div style={{ fontSize: 10, fontWeight: 700, color: "rgba(255,255,255,0.25)", letterSpacing: "0.1em", marginBottom: 14 }}>
+                  DEVELOPER CHECKLIST
+                </div>
+                {checklist.length > 0
+                  ? (
+                    <div style={{ display: "flex", flexDirection: "column", gap: 9 }}>
+                      {checklist.map((item, i) => (
+                        <div key={i} style={{ display: "flex", gap: 9, alignItems: "flex-start", fontSize: 12, color: "rgba(255,255,255,0.48)", lineHeight: 1.6 }}>
+                          <span style={{ flexShrink: 0, marginTop: 1 }}>✅</span>
+                          <span>{item}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )
+                  : <span style={{ fontSize: 12, color: "rgba(255,255,255,0.2)" }}>—</span>
+                }
+              </div>
+            </div>
+          )}
+        </div>
       )}
     </div>
   )
