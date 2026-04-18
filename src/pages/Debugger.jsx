@@ -277,7 +277,6 @@ export default function Debugger() {
             <h1 style={{ fontSize:20, fontWeight:800, color:"#fff", letterSpacing:"-0.02em" }}>AI Code Debugger</h1>
             <p style={{ fontSize:11, color:"rgba(255,255,255,0.3)" }}>
               Bugs · Security holes · Vibe-code smells · Credential leaks
-              <span style={{ color:"#34d399", marginLeft:10 }}>● Live AI</span>
             </p>
           </div>
         </div>

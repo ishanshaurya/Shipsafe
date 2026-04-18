@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Search, Scale, ExternalLink } from "lucide-react"
 import { fetchRegulations } from "../services/scanService"
 import { mockRegulationResult } from "../data/mockResults"
@@ -67,30 +67,89 @@ function SeverityBadge({ severity, large = false }) {
   )
 }
 
-function SkeletonCards({ isMobile }) {
-  const Bar = ({ width, tall }) => (
-    <div style={{
-      height: tall ? 16 : 11, width: `${width}%`,
-      borderRadius: 6, background: "rgba(255,255,255,0.06)",
-      animation: "sk-pulse 1.5s ease-in-out infinite",
-    }} />
-  )
-  const SkCard = ({ lines }) => (
-    <div style={{
-      background: "#0a0a0a", border: "1px solid rgba(255,255,255,0.06)",
-      borderRadius: 12, padding: 20, display: "flex", flexDirection: "column", gap: 10,
-    }}>
-      {lines.map((w, i) => <Bar key={i} width={w} tall={i === 0} />)}
-    </div>
-  )
+const CYCLING_STRINGS = [
+  "Checking EU frameworks...",
+  "Scanning Asia-Pacific laws...",
+  "Reviewing draft legislation...",
+  "Mapping country coverage...",
+]
+
+const PILLS = [
+  { label: "GDPR",   r: 90,  dur: 6,   start: 0   },
+  { label: "AI Act", r: 115, dur: 9,   start: 72  },
+  { label: "DPDP",   r: 100, dur: 7.5, start: 144 },
+  { label: "CCPA",   r: 125, dur: 11,  start: 216 },
+  { label: "DSA",    r: 85,  dur: 8,   start: 288 },
+]
+
+function GlobeLoader() {
+  const [cycleIdx, setCycleIdx] = useState(0)
+
+  useEffect(() => {
+    const id = setInterval(() => setCycleIdx(i => (i + 1) % CYCLING_STRINGS.length), 2000)
+    return () => clearInterval(id)
+  }, [])
+
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-      {[0, 1].map(i => (
-        <div key={i} style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 12 }}>
-          <SkCard lines={[75, 45, 100, 60, 50]} />
-          <SkCard lines={[55, 100, 70, 40, 85]} />
+    <div style={{
+      display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
+      minHeight: 300, gap: 20,
+    }}>
+      <style>{`
+        ${PILLS.map((p, i) => `
+          @keyframes orbit-${i} {
+            from { transform: rotate(${p.start}deg) translateX(${p.r}px) rotate(-${p.start}deg); }
+            to   { transform: rotate(${p.start + 360}deg) translateX(${p.r}px) rotate(-${p.start + 360}deg); }
+          }
+        `).join("")}
+        .globe-pill { position: absolute; animation-timing-function: linear; animation-iteration-count: infinite; }
+        @keyframes globe-pulse { 0%,100%{opacity:.8} 50%{opacity:1} }
+        @keyframes cycle-fade { 0%{opacity:0;transform:translateY(4px)} 15%{opacity:1;transform:translateY(0)} 85%{opacity:1;transform:translateY(0)} 100%{opacity:0;transform:translateY(-4px)} }
+      `}</style>
+
+      {/* Orbit stage */}
+      <div style={{ position: "relative", width: 280, height: 280, display: "flex", alignItems: "center", justifyContent: "center" }}>
+        {/* Globe */}
+        <svg width={80} height={80} viewBox="0 0 80 80" style={{ animation: "globe-pulse 2.5s ease-in-out infinite", zIndex: 1 }}>
+          <circle cx={40} cy={40} r={36} fill="#0f172a" stroke={ACCENT} strokeWidth={2} />
+          <ellipse cx={40} cy={40} rx={18} ry={36} fill="none" stroke={`${ACCENT}55`} strokeWidth={1} />
+          <line x1={4} y1={40} x2={76} y2={40} stroke={`${ACCENT}55`} strokeWidth={1} />
+          <line x1={40} y1={4} x2={40} y2={76} stroke={`${ACCENT}33`} strokeWidth={1} />
+          <ellipse cx={40} cy={40} rx={36} ry={12} fill="none" stroke={`${ACCENT}33`} strokeWidth={1} />
+        </svg>
+
+        {/* Orbiting pills */}
+        {PILLS.map((p, i) => (
+          <div key={p.label} className="globe-pill" style={{
+            animationName: `orbit-${i}`,
+            animationDuration: `${p.dur}s`,
+          }}>
+            <span style={{
+              display: "inline-block",
+              fontSize: 9, fontWeight: 700, letterSpacing: "0.08em",
+              color: ACCENT, background: `${ACCENT}18`,
+              border: `1px solid ${ACCENT}35`,
+              padding: "3px 8px", borderRadius: 4,
+              whiteSpace: "nowrap",
+            }}>
+              {p.label}
+            </span>
+          </div>
+        ))}
+      </div>
+
+      {/* Text */}
+      <div style={{ textAlign: "center", display: "flex", flexDirection: "column", gap: 6 }}>
+        <div style={{ fontSize: 13, color: "rgba(255,255,255,0.35)" }}>
+          Searching global regulations...
         </div>
-      ))}
+        <div key={cycleIdx} style={{
+          fontSize: 11, color: "rgba(255,255,255,0.2)",
+          animation: "cycle-fade 2s ease",
+        }}>
+          {CYCLING_STRINGS[cycleIdx]}
+        </div>
+      </div>
     </div>
   )
 }
@@ -269,12 +328,8 @@ export default function Regulations() {
           <h1 style={{ fontSize: 20, fontWeight: 800, color: "rgba(255,255,255,0.85)", margin: 0, letterSpacing: "-0.02em" }}>
             AI Regulation Explorer
           </h1>
-          <p style={{ fontSize: 12, color: "rgba(255,255,255,0.3)", margin: "3px 0 0", display: "flex", alignItems: "center", gap: 8 }}>
+          <p style={{ fontSize: 12, color: "rgba(255,255,255,0.3)", margin: "3px 0 0" }}>
             Search global AI laws by topic
-            <span style={{ display: "flex", alignItems: "center", gap: 4, color: ACCENT }}>
-              <span style={{ width: 5, height: 5, borderRadius: "50%", background: ACCENT, display: "inline-block" }} />
-              Live AI
-            </span>
           </p>
         </div>
       </div>
@@ -331,8 +386,8 @@ export default function Regulations() {
         })}
       </div>
 
-      {/* ── Loading skeletons ──────────────────────── */}
-      {loading && <SkeletonCards isMobile={isMobile} />}
+      {/* ── Loading animation ─────────────────────── */}
+      {loading && <GlobeLoader />}
 
       {/* ── Error banner ───────────────────────────── */}
       {!loading && error && results && (
