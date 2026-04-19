@@ -22,6 +22,46 @@ const TOPICS = [
   "Algorithmic Accountability",
 ]
 
+const TOPIC_CARDS = [
+  { topic: "Privacy",                   icon: "🔒", desc: "Data collection, consent laws, GDPR, user rights" },
+  { topic: "Deepfakes",                 icon: "🎭", desc: "Synthetic media, non-consensual imagery, disclosure rules" },
+  { topic: "Bias",                      icon: "⚖️", desc: "Algorithmic discrimination, fairness requirements, auditing" },
+  { topic: "Surveillance",              icon: "👁️", desc: "Facial recognition, mass monitoring, government access" },
+  { topic: "CSAM",                      icon: "🛡️", desc: "Child safety online, detection obligations, platform liability" },
+  { topic: "Data Retention",            icon: "🗄️", desc: "Storage limits, deletion rights, cross-border transfers" },
+  { topic: "Algorithmic Accountability",icon: "🤖", desc: "Automated decisions, explainability, human oversight" },
+]
+
+const FEATURED_REGULATIONS = [
+  {
+    name: "EU AI Act",
+    country: "European Union",
+    year: 2024,
+    status: "Active",
+    summary: "Comprehensive risk-based framework regulating AI systems across the EU. High-risk AI requires conformity assessments, transparency obligations, and human oversight before deployment.",
+    source_url: "https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:32024R1689",
+    sectors: ["Technology", "Healthcare", "Finance", "Public Sector"],
+  },
+  {
+    name: "India Digital Personal Data Protection Act",
+    country: "India",
+    year: 2023,
+    status: "Active",
+    summary: "Governs processing of digital personal data in India. Requires consent for data processing, mandates data fiduciaries to implement security safeguards, and grants users rights to erasure and grievance redressal.",
+    source_url: "https://www.meity.gov.in/writereaddata/files/Digital%20Personal%20Data%20Protection%20Act%202023.pdf",
+    sectors: ["Technology", "Finance", "Healthcare", "E-commerce"],
+  },
+  {
+    name: "China Generative AI Regulations",
+    country: "China",
+    year: 2023,
+    status: "Active",
+    summary: "Regulates generative AI services in China. Providers must label AI-generated content, prevent generation of prohibited content, and register algorithms with the Cyberspace Administration of China.",
+    source_url: "https://www.cac.gov.cn/2023-07/13/c_1690898327029107.htm",
+    sectors: ["Technology", "Media", "Social Platforms"],
+  },
+]
+
 const STATUS_COLOR = {
   Active:   "#22c55e",
   Draft:    "#eab308",
@@ -386,8 +426,69 @@ export default function Regulations() {
         })}
       </div>
 
+      {/* ── Featured Regulations (always visible) ──── */}
+      <div style={{ marginBottom: 28 }}>
+        <div style={{ display: "flex", alignItems: "baseline", gap: 10, marginBottom: 14 }}>
+          <span style={{ fontSize: 13, fontWeight: 700, color: "rgba(255,255,255,0.65)", letterSpacing: "-0.01em" }}>
+            Featured Regulations
+          </span>
+          <span style={{ fontSize: 10, color: "rgba(255,255,255,0.2)" }}>Always current</span>
+        </div>
+        <div style={{
+          display: "grid",
+          gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr 1fr",
+          gap: 12,
+        }}>
+          {FEATURED_REGULATIONS.map((reg, i) => (
+            <RegulationCard key={i} reg={reg} />
+          ))}
+        </div>
+      </div>
+
       {/* ── Loading animation ─────────────────────── */}
       {loading && <GlobeLoader />}
+
+      {/* ── Empty state topic cards ───────────────── */}
+      {results === null && !loading && (
+        <div>
+          <div style={{ fontSize: 11, color: "rgba(255,255,255,0.22)", letterSpacing: "0.06em", marginBottom: 14, fontWeight: 600 }}>
+            BROWSE BY TOPIC
+          </div>
+          <div style={{
+            display: "grid",
+            gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr",
+            gap: 10,
+          }}>
+            {TOPIC_CARDS.map(({ topic, icon, desc }) => (
+              <button
+                key={topic}
+                onClick={() => handleChip(topic)}
+                style={{
+                  background: "#0a0a0a",
+                  border: "1px solid rgba(255,255,255,0.07)",
+                  borderRadius: 12,
+                  padding: "16px 18px",
+                  cursor: "pointer",
+                  textAlign: "left",
+                  fontFamily: "inherit",
+                  transition: "border-color 0.15s",
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: 6,
+                }}
+                onMouseEnter={e => e.currentTarget.style.borderColor = `${ACCENT}50`}
+                onMouseLeave={e => e.currentTarget.style.borderColor = "rgba(255,255,255,0.07)"}
+              >
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <span style={{ fontSize: 18, lineHeight: 1 }}>{icon}</span>
+                  <span style={{ fontSize: 13, fontWeight: 700, color: "rgba(255,255,255,0.8)" }}>{topic}</span>
+                </div>
+                <p style={{ margin: 0, fontSize: 11, color: "rgba(255,255,255,0.35)", lineHeight: 1.6 }}>{desc}</p>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* ── Error banner ───────────────────────────── */}
       {!loading && error && results && (
