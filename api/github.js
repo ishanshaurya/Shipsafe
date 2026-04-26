@@ -1,20 +1,11 @@
-// api/github.js — Vercel Serverless Function
-// Fetches source files from a public GitHub repo for scanning.
-//
-// Flow: Frontend → POST /api/github → GitHub API → returns combined source code
-//
-// Supports: public repos (no auth needed), private repos (with GITHUB_TOKEN env var)
-// Rate limits: 60 req/hr without token, 5000 req/hr with token
-//
-// Modes:
-//   { url }                        → default: auto-select files, fetch content, return combined code
-//   { url, mode: "list" }          → fast: return file tree only (no content), one API call per dir
-//   { url, files: ["path1", ...] } → selective: fetch only the specified file paths
+// api/github.js — Vercel Serverless Function (v2)
+// Uses Git Trees API for full recursive repo scanning
 
-// File extensions we care about for code scanning
 const CODE_EXTENSIONS = [
   ".js", ".jsx", ".ts", ".tsx", ".py", ".java", ".go", ".rs",
   ".rb", ".php", ".c", ".cpp", ".cs", ".swift", ".kt",
+  ".vue", ".svelte", ".mjs", ".cjs", ".graphql", ".gql",
+  ".sql", ".sh", ".bash", ".proto", ".dart", ".scala", ".ex", ".exs"
 ]
 
 const CONFIG_FILES = [
@@ -22,19 +13,25 @@ const CONFIG_FILES = [
   "next.config.js", "next.config.mjs", ".env.example", "vercel.json",
   "Dockerfile", "docker-compose.yml", "requirements.txt", "Cargo.toml",
   "go.mod", "Gemfile", ".eslintrc", ".eslintrc.js", ".eslintrc.json",
-  "tailwind.config.js", "postcss.config.js",
+  "tailwind.config.js", "postcss.config.js", "jest.config.js",
+  "jest.config.ts", "webpack.config.js", "babel.config.json",
+  ".prettierrc", "pyproject.toml", "nx.json", "turbo.json",
+  "railway.json", "render.yaml", ".github/workflows"
 ]
 
-// Max files to fetch (GitHub API rate limit protection)
-const MAX_FILES = 30
-// Max file size in bytes (skip huge files)
-const MAX_FILE_SIZE = 50000 // 50KB
-// If total selected file size exceeds this, cap at LARGE_LIMIT instead of MAX_FILES
-const TOTAL_SIZE_THRESHOLD = 100 * 1024 // 100KB
-const LARGE_LIMIT = 15
+const SKIP_PATHS = [
+  "node_modules/", "dist/", "build/", ".next/", ".nuxt/",
+  "coverage/", ".git/", "vendor/", "__pycache__/", ".pytest_cache/"
+]
+
+const SKIP_FILES = [
+  "package-lock.json", "yarn.lock", "pnpm-lock.yaml", "composer.lock"
+]
+
+const MAX_FILES = 25
+const MAX_FILE_SIZE = 60000 // 60KB
 
 function parseGitHubUrl(url) {
-  // Handles: github.com/owner/repo, github.com/owner/repo/tree/branch/path
   const match = url.match(/github\.com\/([^/]+)\/([^/\s#?]+)/)
   if (!match) return null
   return { owner: match[1], repo: match[2].replace(/\.git$/, "") }
@@ -54,6 +51,11 @@ async function githubFetch(path, token) {
     if (remaining === "0") {
       throw new Error("GitHub API rate limit exceeded. Try again in a few minutes.")
     }
+    throw new Error("GitHub API access forbidden.")
+  }
+
+  if (res.status === 404) {
+    throw new Error("Repository not found or is private.")
   }
 
   if (!res.ok) {
@@ -64,83 +66,70 @@ async function githubFetch(path, token) {
 }
 
 function shouldIncludeFile(item) {
-  if (item.type !== "file") return false
+  if (item.type !== "blob") return false
   if (item.size > MAX_FILE_SIZE) return false
 
-  const name = item.name.toLowerCase()
+  const name = item.path.split("/").pop().toLowerCase()
   const path = item.path.toLowerCase()
 
-  // Skip test files, node_modules, build output, lock files
-  if (path.includes("node_modules/")) return false
-  if (path.includes("dist/")) return false
-  if (path.includes("build/")) return false
-  if (path.includes(".min.")) return false
-  if (name === "package-lock.json" || name === "yarn.lock" || name === "pnpm-lock.yaml") return false
+  if (SKIP_FILES.includes(name)) return false
+  if (SKIP_PATHS.some((s) => path.includes(s))) return false
+  if (name.includes(".min.")) return false
+  if (name.startsWith(".") && !CONFIG_FILES.includes(name)) return false
 
-  // Include config files
-  if (CONFIG_FILES.includes(name)) return true
+  if (CONFIG_FILES.some((c) => name === c || path.endsWith(c))) return true
 
-  // Include source code files
   return CODE_EXTENSIONS.some((ext) => name.endsWith(ext))
 }
 
-async function fetchFileContent(item, token) {
+function smartSelect(allFiles) {
+  const configs = allFiles.filter((f) => {
+    const name = f.path.split("/").pop().toLowerCase()
+    return CONFIG_FILES.some((c) => name === c || f.path.toLowerCase().endsWith(c))
+  })
+
+  const source = allFiles.filter((f) => {
+    const name = f.path.split("/").pop().toLowerCase()
+    return !CONFIG_FILES.some((c) => name === c)
+  })
+
+  // Group source files by top-level directory
+  const byDir = {}
+  for (const f of source) {
+    const topDir = f.path.includes("/") ? f.path.split("/")[0] : "__root__"
+    if (!byDir[topDir]) byDir[topDir] = []
+    byDir[topDir].push(f)
+  }
+
+  // Sort each dir's files by size descending (larger = more to scan)
+  for (const dir of Object.values(byDir)) {
+    dir.sort((a, b) => b.size - a.size)
+  }
+
+  // Round-robin across directories to spread coverage
+  const spread = []
+  const dirs = Object.values(byDir)
+  let i = 0
+  const budget = MAX_FILES - configs.length
+  while (spread.length < budget && dirs.some((d) => d.length > 0)) {
+    const dir = dirs[i % dirs.length]
+    if (dir.length > 0) spread.push(dir.shift())
+    i++
+  }
+
+  return [...configs, ...spread].slice(0, MAX_FILES)
+}
+
+async function fetchFileContent(path, owner, repo, token) {
   try {
-    const data = await githubFetch(`/repos/${item.full_path}`, token)
+    const data = await githubFetch(`/repos/${owner}/${repo}/contents/${path}`, token)
     if (data.encoding === "base64" && data.content) {
       return Buffer.from(data.content, "base64").toString("utf-8")
     }
     return null
   } catch {
-    return null // Skip files that fail to fetch
+    return null
   }
-}
-
-// Collect all candidate files from key directories (no content fetching)
-async function collectAllFiles(owner, repo, token) {
-  const paths = ["", "/src", "/app", "/lib", "/server", "/api", "/pages", "/components"]
-  const allFiles = []
-  const seen = new Set()
-
-  for (const dir of paths) {
-    try {
-      const contents = await githubFetch(
-        `/repos/${owner}/${repo}/contents${dir}`,
-        token
-      )
-      if (Array.isArray(contents)) {
-        for (const item of contents) {
-          if (shouldIncludeFile(item) && !seen.has(item.path)) {
-            seen.add(item.path)
-            allFiles.push({
-              name: item.name,
-              path: item.path,
-              size: item.size,
-              full_path: `${owner}/${repo}/contents/${item.path}`,
-            })
-          }
-        }
-      }
-    } catch {
-      // Directory doesn't exist — skip
-    }
-  }
-
-  return allFiles
-}
-
-// Prioritize and select files, applying the smart size limit
-function selectFiles(allFiles) {
-  const configs = allFiles.filter((f) => CONFIG_FILES.includes(f.name))
-  const source = allFiles
-    .filter((f) => !CONFIG_FILES.includes(f.name))
-    .sort((a, b) => b.size - a.size) // Larger files first (more to scan)
-
-  const candidates = [...configs, ...source]
-  const totalSize = candidates.reduce((sum, f) => sum + f.size, 0)
-  const limit = totalSize < TOTAL_SIZE_THRESHOLD ? MAX_FILES : LARGE_LIMIT
-
-  return candidates.slice(0, limit)
 }
 
 export default async function handler(req, res) {
@@ -153,123 +142,75 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: "Method not allowed" })
   }
 
-  const { url, mode, files } = req.body
+  const { url } = req.body
   if (!url || !url.trim()) {
     return res.status(400).json({ error: "No GitHub URL provided" })
   }
 
   const parsed = parseGitHubUrl(url)
   if (!parsed) {
-    return res.status(400).json({ error: "Invalid GitHub URL. Expected: github.com/owner/repo" })
+    return res.status(400).json({ error: "Invalid GitHub URL. Use: https://github.com/owner/repo" })
   }
 
   const token = process.env.GITHUB_TOKEN || null
 
   try {
-    // Get repo metadata (always needed)
-    const repo = await githubFetch(`/repos/${parsed.owner}/${parsed.repo}`, token)
+    // Step 1: Get repo metadata
+    const repoData = await githubFetch(`/repos/${parsed.owner}/${parsed.repo}`, token)
 
-    // ── MODE: list ────────────────────────────────────────────────────────────
-    // Returns the file tree with auto-selection flags. No content fetching.
-    if (mode === "list") {
-      const allFiles = await collectAllFiles(parsed.owner, parsed.repo, token)
+    // Step 2: Get default branch
+    const defaultBranch = repoData.default_branch || "main"
 
-      if (allFiles.length === 0) {
-        return res.status(404).json({ error: "No scannable source files found in this repo" })
-      }
+    // Step 3: ONE call — full recursive file tree via Git Trees API
+    const treeData = await githubFetch(
+      `/repos/${parsed.owner}/${parsed.repo}/git/trees/${defaultBranch}?recursive=1`,
+      token
+    )
 
-      const selected = selectFiles(allFiles)
-      const autoSelectedPaths = new Set(selected.map((f) => f.path))
-
-      return res.status(200).json({
-        repo: {
-          name: repo.full_name,
-          description: repo.description,
-          language: repo.language,
-          stars: repo.stargazers_count,
-          url: repo.html_url,
-        },
-        files: allFiles.map((f) => ({
-          name: f.name,
-          path: f.path,
-          size: f.size,
-          autoSelected: autoSelectedPaths.has(f.path),
-        })),
-        autoSelectedCount: selected.length,
-      })
+    if (!treeData.tree || treeData.tree.length === 0) {
+      return res.status(404).json({ error: "Repository appears to be empty." })
     }
 
-    // ── MODE: selected files ───────────────────────────────────────────────────
-    // Fetches only the paths provided in the `files` array.
-    if (files && Array.isArray(files) && files.length > 0) {
-      const filesToFetch = files.map((path) => ({
-        name: path.split("/").pop(),
-        path,
-        full_path: `${parsed.owner}/${parsed.repo}/contents/${path}`,
-      }))
+    // Step 4: Filter to scannable files
+    const allFiles = treeData.tree
+      .filter(shouldIncludeFile)
+      .map((item) => ({ path: item.path, size: item.size }))
 
-      const fetched = []
-      for (const item of filesToFetch) {
-        const content = await fetchFileContent(item, token)
-        if (content) {
-          fetched.push({ path: item.path, content })
-        }
-      }
-
-      if (fetched.length === 0) {
-        return res.status(404).json({ error: "Could not fetch any of the selected files" })
-      }
-
-      const combined = fetched
-        .map((f) => `// === ${f.path} ===\n${f.content}`)
-        .join("\n\n")
-
-      return res.status(200).json({
-        repo: {
-          name: repo.full_name,
-          description: repo.description,
-          language: repo.language,
-          stars: repo.stargazers_count,
-          url: repo.html_url,
-        },
-        files: fetched.map((f) => f.path),
-        fileCount: fetched.length,
-        totalLines: combined.split("\n").length,
-        code: combined,
-      })
+    if (allFiles.length === 0) {
+      return res.status(404).json({ error: "No scannable source files found in this repo." })
     }
 
-    // ── MODE: default (auto-select + fetch all) ────────────────────────────────
-    const allFiles = await collectAllFiles(parsed.owner, parsed.repo, token)
-    const selected = selectFiles(allFiles)
+    // Step 5: Smart selection — spread across directories
+    const selected = smartSelect(allFiles)
 
-    // Fetch file contents
-    const fetchedFiles = []
+    // Step 6: Fetch file contents (sequential to respect rate limits)
+    const files = []
     for (const item of selected) {
-      const content = await fetchFileContent(item, token)
+      const content = await fetchFileContent(item.path, parsed.owner, parsed.repo, token)
       if (content) {
-        fetchedFiles.push({ path: item.path, content })
+        files.push({ path: item.path, content })
       }
     }
 
-    if (fetchedFiles.length === 0) {
-      return res.status(404).json({ error: "No scannable source files found in this repo" })
+    if (files.length === 0) {
+      return res.status(404).json({ error: "Could not read any file contents from this repo." })
     }
 
-    const combined = fetchedFiles
+    // Step 7: Combine
+    const combined = files
       .map((f) => `// === ${f.path} ===\n${f.content}`)
       .join("\n\n")
 
     return res.status(200).json({
       repo: {
-        name: repo.full_name,
-        description: repo.description,
-        language: repo.language,
-        stars: repo.stargazers_count,
-        url: repo.html_url,
+        name: repoData.full_name,
+        description: repoData.description,
+        language: repoData.language,
+        stars: repoData.stargazers_count,
+        url: repoData.html_url,
       },
-      files: fetchedFiles.map((f) => f.path),
-      fileCount: fetchedFiles.length,
+      files: files.map((f) => f.path),
+      fileCount: files.length,
       totalLines: combined.split("\n").length,
       code: combined,
     })
