@@ -345,7 +345,7 @@ export default function Debugger() {
                   {fileList.map(f => {
                     const checked = selectedFiles.includes(f.path)
                     return (
-                      <label key={f.path} style={{ display:"flex", alignItems:"center", gap:10, padding:"7px 14px", cursor:"pointer", borderBottom:"1px solid rgba(255,255,255,0.03)", background: checked ? "rgba(52,211,153,0.03)" : "transparent" }}>
+                      <label key={f.path} style={{ display:"flex", alignItems:"center", gap:10, padding:"7px 14px", cursor:"pointer", borderBottom:"1px solid rgba(255,255,255,0.03)", background: checked ? "rgba(52,211,153,0.03)" : "transparent", minWidth:0 }}>
                         <input
                           type="checkbox"
                           checked={checked}
@@ -353,7 +353,7 @@ export default function Debugger() {
                           style={{ accentColor:"#34d399", width:13, height:13, flexShrink:0 }}
                         />
                         <FileCode size={11} color={checked ? "#34d399" : "rgba(255,255,255,0.2)"} style={{ flexShrink:0 }}/>
-                        <span style={{ flex:1, fontFamily:"monospace", fontSize:11, color: checked ? "rgba(255,255,255,0.75)" : "rgba(255,255,255,0.35)", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
+                        <span style={{ flex:1, minWidth:0, fontFamily:"monospace", fontSize:11, color: checked ? "rgba(255,255,255,0.75)" : "rgba(255,255,255,0.35)", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
                           {f.path}
                         </span>
                         {f.autoSelected && <span style={{ fontSize:9, color:"rgba(52,211,153,0.6)", background:"rgba(52,211,153,0.06)", padding:"1px 5px", borderRadius:3, flexShrink:0 }}>rec</span>}
