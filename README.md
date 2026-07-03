@@ -186,7 +186,7 @@ shipsafe/
 |---|---|
 | `scan_history` | Stores all scan results (debugger, audit, loopholes, deploy-check, stress-test) |
 | `regulations` | AI regulation data (14 countries) — public read |
-| `reports` | Public shareable reports (coming soon) |
+| `reports` | Public shareable scan reports (`/report/:slug`) |
 
 All tables use **Row Level Security (RLS)** — users can only access their own data.
 
@@ -214,7 +214,8 @@ All tables use **Row Level Security (RLS)** — users can only access their own 
 - [x] Public shareable reports (/report/:id)
 - [ ] Mobile responsive (in progress)
 - [ ] Groq fallback API
-- [ ] Rate limiting on AI proxy
+- [x] Rate limiting on AI proxy (in-memory, 10 req/min per IP)
+- [ ] Persistent rate limiting (Upstash/Redis)
 - [ ] PDF export for reports
 - [ ] Real regulation data API integration
 
