@@ -83,9 +83,32 @@ Track all your scans in one place. Shows scan history, scores, issue counts, and
 
 **Key design decisions:**
 - **Serverless proxy pattern** — React calls `/api/claude`, the serverless function adds the API key and forwards to Gemini. API keys never appear in frontend code.
-- **Service layer** — `scanService.js` centralizes all AI calls. One function (`callAI`) handles prompt building, fetching, JSON parsing, and validation for all 5 tools.
+- **Service layer** — `scanService.js` centralizes all AI calls. One function (`callAI`) handles prompt building, fetching, JSON parsing, and validation for all 6 tools.
 - **Row Level Security** — Supabase RLS ensures users can only see their own scan history.
 - **Regulations page** — uses live Gemini queries with in-memory caching and schema normalization — no static database.
+
+---
+
+## API Endpoints
+
+All serverless routes live under `/api/` and run on Vercel only (not available via `npm run dev` alone).
+
+| Endpoint | Method | Purpose |
+|---|---|---|
+| `/api/claude` | POST | AI proxy — forwards tool prompts to Gemini 2.5 Flash. Supports streaming on Debugger. Rate-limited to 10 req/min per IP. |
+| `/api/github` | POST | Fetches repo file tree and contents via GitHub Trees API for Debugger and Audit scans. |
+| `/api/embed` | POST | Generates vector embeddings for scan results (pgvector similarity search). |
+
+**Example request** (`/api/claude`):
+```json
+{
+  "tool": "debugger",
+  "userPrompt": "Review this code for security issues...",
+  "stream": false
+}
+```
+
+Allowed `tool` values: `debugger`, `audit`, `loopholes`, `deploy-check`, `stress-test`, `regulations`.
 
 ---
 
