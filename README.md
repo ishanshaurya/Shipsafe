@@ -235,6 +235,7 @@ All tables use **Row Level Security (RLS)** — users can only access their own 
 | `VITE_SUPABASE_URL` | Browser | Supabase project URL |
 | `VITE_SUPABASE_ANON_KEY` | Browser | Supabase public key (safe to expose — RLS protects data) |
 | `GEMINI_API_KEY` | Server only | Google Gemini API key |
+| `GITHUB_TOKEN` | Server only | Optional — higher GitHub API rate limits for repo scanning |
 
 ---
 
