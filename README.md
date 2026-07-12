@@ -248,7 +248,12 @@ All tables use **Row Level Security (RLS)** — users can only access their own 
 - [x] Supabase Auth (email + GitHub)
 - [x] Scan history dashboard
 - [x] Public shareable reports (/report/:id)
-- [ ] Mobile responsive (in progress)
+- [x] GitHub repo scanning (Debugger + Audit)
+- [x] Streaming AI responses on Debugger
+- [x] Ship-Readiness Score on Dashboard
+- [x] Cross-tool suggestions across all pages
+- [x] Real endpoint stress testing
+- [ ] Mobile responsive (partial — tool pages done, Dashboard/Landing pending)
 - [ ] Groq fallback API
 - [x] Rate limiting on AI proxy (in-memory, 10 req/min per IP)
 - [ ] Persistent rate limiting (Upstash/Redis)
@@ -270,7 +275,27 @@ All tables use **Row Level Security (RLS)** — users can only access their own 
 
 ---
 
-## Built By
+## Contributing
+
+Contributions welcome. Quick start:
+
+```bash
+git clone https://github.com/ishanshaurya/shipsafe.git
+cd shipsafe
+npm install
+cp .env.example .env.local   # fill in your keys
+npx vercel dev               # full stack with API routes
+```
+
+**Guidelines:**
+- One feature or fix per PR
+- Run `npm run lint` before committing
+- Never commit `.env.local` or API keys
+- README updates appreciated for new features or env vars
+
+Found a bug? Open an issue on [GitHub](https://github.com/ishanshaurya/Shipsafe/issues).
+
+---
 
 **Shaurya Ishan** — [GitHub](https://github.com/ishanshaurya)
 
