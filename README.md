@@ -257,6 +257,19 @@ All tables use **Row Level Security (RLS)** — users can only access their own 
 
 ---
 
+## Troubleshooting
+
+| Problem | Fix |
+|---|---|
+| AI features return errors locally | Use `npx vercel dev` instead of `npm run dev`. The `/api/` routes only run on Vercel. |
+| `Service unavailable` from `/api/claude` | Check `GEMINI_API_KEY` is set in Vercel env vars (no `VITE_` prefix). |
+| GitHub repo scan fails | Public repos work without a token. For private repos or higher rate limits, add `GITHUB_TOKEN` to Vercel env vars. |
+| Scan history not saving | Confirm Supabase keys in `.env.local` and that RLS policies are enabled on `scan_history`. |
+| Rate limit hit (429) | Proxy allows 10 requests per minute per IP. Wait 60 seconds or deploy persistent limiting via Upstash. |
+| Auth redirect loop | Ensure Supabase Auth redirect URL includes your Vercel domain and `http://localhost:5173` for local dev. |
+
+---
+
 ## Built By
 
 **Shaurya Ishan** — [GitHub](https://github.com/ishanshaurya)
