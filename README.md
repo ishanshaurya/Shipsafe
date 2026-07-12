@@ -22,12 +22,12 @@ ShipSafe is an all-in-one developer toolkit for building, validating, and deploy
 ## Features
 
 ### AI Code Debugger
-Paste any code and get an instant AI analysis covering bugs, security vulnerabilities, and **vibe-code smells** — patterns unique to AI-generated code that real developers wouldn't write (hardcoded secrets, no error handling, hallucinated imports, console.log everywhere).
+Paste any code and get an instant AI analysis covering bugs, security vulnerabilities, and **vibe-code smells** — patterns unique to AI-generated code that real developers wouldn't write (hardcoded secrets, no error handling, hallucinated imports, console.log everywhere). Supports **streaming responses** and **GitHub repo scanning** — paste a repo URL to fetch and analyze files automatically.
 
 <!-- ![AI Debugger Screenshot](screenshots/debugger.png) -->
 
 ### Vibe-Code Audit
-Goes beyond single-file debugging. Paste your entire project structure and get a **scored report card** across 5 categories: Security, Code Quality, Maintainability, AI-Pattern Detection, and Deployment Readiness.
+Goes beyond single-file debugging. Paste your entire project structure or connect a **GitHub repository** and get a **scored report card** across 5 categories: Security, Code Quality, Maintainability, AI-Pattern Detection, and Deployment Readiness.
 
 <!-- ![Vibe-Code Audit Screenshot](screenshots/audit.png) -->
 
@@ -45,14 +45,17 @@ The final gate before shipping. Describe your deployment setup and the AI checks
 <!-- ![Deploy Checker Screenshot](screenshots/deploy-check.png) -->
 
 ### Stress Tester
-A simulated load testing tool. Describe your stack and the AI predicts bottlenecks at 10, 100, 1,000, and 10,000 concurrent users — identifying which component breaks first and what the fix is. Includes realistic analysis of free-tier limits (Vercel, Supabase, etc.).
+Probe your live endpoints under simulated load. Describe your stack and ShipSafe runs **real HTTP requests** against your URLs, detecting bottlenecks at 10, 100, 1,000, and 10,000 concurrent users — identifying which component breaks first and what the fix is. Includes realistic analysis of free-tier limits (Vercel, Supabase, etc.).
 
 <!-- ![Stress Tester Screenshot](screenshots/stress-test.png) -->
 
 ### Dashboard
-Track all your scans in one place. Shows scan history, scores, issue counts, and quick actions to every tool. Logged-in users get persistent scan history via Supabase.
+Track all your scans in one place. Shows scan history, scores, issue counts, a unified **Ship-Readiness Score**, and quick actions to every tool. Logged-in users get persistent scan history via Supabase. **Cross-tool suggestions** recommend the next best scan based on your results.
 
 <!-- ![Dashboard Screenshot](screenshots/dashboard.png) -->
+
+### Shareable Reports
+Every tool page includes a **Report** button that generates a public link (`/report/:slug`). Share scan results with teammates or stakeholders without requiring a login.
 
 ---
 
