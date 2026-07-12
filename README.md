@@ -171,32 +171,42 @@ Add environment variables in Vercel dashboard → Settings → Environment Varia
 ```
 shipsafe/
 ├── api/
-│   └── claude.js              # Serverless proxy → Gemini
+│   ├── claude.js              # Serverless AI proxy → Gemini
+│   ├── github.js              # GitHub repo file fetcher
+│   └── embed.js               # Vector embedding generator
 ├── src/
 │   ├── components/
-│   │   └── Layout.jsx         # Shared navbar + sidebar + dark theme
+│   │   ├── Layout.jsx         # Navbar + sidebar + mobile drawer
+│   │   ├── ReportButton.jsx   # Shareable report link generator
+│   │   ├── NextSteps.jsx      # Cross-tool suggestion cards
+│   │   └── Logo.jsx           # Brand mark
 │   ├── pages/
-│   │   ├── Dashboard.jsx      # User home (scan history, quick actions)
-│   │   ├── Debugger.jsx       # AI Code Debugger
-│   │   ├── Audit.jsx          # Vibe-Code Audit
+│   │   ├── Dashboard.jsx      # Scan history + Ship-Readiness Score
+│   │   ├── Debugger.jsx       # AI Code Debugger (streaming + GitHub)
+│   │   ├── Audit.jsx          # Vibe-Code Audit (GitHub repo scan)
 │   │   ├── Loopholes.jsx      # Loophole Finder
 │   │   ├── DeployCheck.jsx    # Deploy Readiness Checker
-│   │   ├── StressTest.jsx     # Stress Tester
-│   │   ├── Regulations.jsx    # AI Regulation Tracker
+│   │   ├── StressTest.jsx     # Real endpoint stress testing
+│   │   ├── Regulations.jsx    # Live AI regulation explorer
+│   │   ├── Report.jsx         # Public shareable report viewer
 │   │   ├── Landing.jsx        # Public landing page
 │   │   └── Login.jsx          # Auth page
 │   ├── services/
-│   │   ├── scanService.js     # AI call handler (all tools use this)
-│   │   └── supabaseService.js # Database operations with error handling
+│   │   ├── scanService.js     # AI call handler (all tools)
+│   │   └── supabaseService.js # Database + report operations
+│   ├── utils/
+│   │   ├── shipReadiness.js   # Unified readiness score calculator
+│   │   └── crossToolSuggestions.js  # Smart next-step recommendations
 │   ├── data/
 │   │   └── mockResults.js     # Demo data for logged-out users
 │   ├── hooks/
-│   │   ├── useAuth.js         # Auth state hook
+│   │   ├── useAuth.jsx        # Auth state provider
+│   │   ├── useReport.js       # Report slug generation
 │   │   └── useIsMobile.js     # Responsive breakpoint hook
 │   ├── lib/
 │   │   └── supabase.js        # Supabase client init
 │   └── App.jsx                # Router setup
-├── vercel.json                # SPA routing rewrites
+├── vercel.json                # SPA routing + security headers
 ├── package.json
 └── README.md
 ```
