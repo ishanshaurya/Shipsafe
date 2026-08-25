@@ -28,6 +28,14 @@
   --blue: #3b82f6;
   --font-mono: 'IBM Plex Mono', ui-monospace, monospace;
   --font-display: 'Syne', sans-serif;
+  /* shadcn-compatible tokens used by ui components / demos */
+  --background: var(--bg-primary);
+  --foreground: var(--text-primary);
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
