@@ -44,7 +44,7 @@ function ScoreRing({ score }) {
         style={{ transition:"stroke-dashoffset 0.6s ease" }}
       />
       <text x={64} y={60} textAnchor="middle" fill={color} fontSize={26} fontWeight={700}>{score}</text>
-      <text x={64} y={78} textAnchor="middle" fill="#64748b" fontSize={11}>/100</text>
+      <text x={64} y={78} textAnchor="middle" fill="rgba(255,255,255,0.25)" fontSize={11}>/100</text>
     </svg>
   )
 }
@@ -219,31 +219,30 @@ Return exactly this JSON shape (no markdown, no extra text):
   }))
 
   const S = {
-    page:    { minHeight:"100vh", background:"#080c14", color:"#f1f5f9", padding:"32px 24px", fontFamily:"inherit" },
-    card:    { background:"rgba(15,23,42,0.6)", border:"1px solid rgba(30,41,59,0.8)", borderRadius:12, padding:"24px" },
-    label:   { display:"block", fontSize:12, fontWeight:600, color:"#94a3b8", marginBottom:6, textTransform:"uppercase", letterSpacing:"0.05em" },
-    input:   { width:"100%", background:"rgba(15,23,42,0.8)", border:"1px solid rgba(30,41,59,0.9)", borderRadius:8, padding:"10px 12px", color:"#f1f5f9", fontSize:13, outline:"none", boxSizing:"border-box" },
-    select:  { width:"100%", background:"rgba(15,23,42,0.8)", border:"1px solid rgba(30,41,59,0.9)", borderRadius:8, padding:"10px 12px", color:"#f1f5f9", fontSize:13, outline:"none", boxSizing:"border-box", cursor:"pointer" },
-    btn:     { width:"100%", background:"#eab308", border:"none", borderRadius:8, padding:"12px", color:"#0a0a0a", fontWeight:700, fontSize:14, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", gap:8 },
-    btnGhost:{ background:"rgba(30,41,59,0.6)", border:"1px solid rgba(30,41,59,0.8)", borderRadius:8, padding:"10px 16px", color:"#94a3b8", fontWeight:600, fontSize:13, cursor:"pointer" },
-    h2:      { fontSize:18, fontWeight:700, color:"#f1f5f9", margin:"0 0 16px" },
-    muted:   { color:"#64748b", fontSize:12 },
+    card:    { background:"#0a0a0a", border:"1px solid rgba(255,255,255,0.06)", borderRadius:12, padding:"24px" },
+    label:   { display:"block", fontSize:11, fontWeight:700, color:"rgba(255,255,255,0.2)", marginBottom:6, textTransform:"uppercase", letterSpacing:"0.1em" },
+    input:   { width:"100%", background:"rgba(255,255,255,0.03)", border:"1px solid rgba(255,255,255,0.08)", borderRadius:8, padding:"10px 12px", color:"rgba(255,255,255,0.85)", fontSize:13, outline:"none", boxSizing:"border-box" },
+    select:  { width:"100%", background:"rgba(255,255,255,0.03)", border:"1px solid rgba(255,255,255,0.08)", borderRadius:8, padding:"10px 12px", color:"rgba(255,255,255,0.85)", fontSize:13, outline:"none", boxSizing:"border-box", cursor:"pointer" },
+    btn:     { width:"100%", background:"#eab308", border:"none", borderRadius:10, padding:"13px", color:"#0a0a0a", fontWeight:700, fontSize:14, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", gap:8, transition:"all 0.15s" },
+    btnGhost:{ background:"rgba(255,255,255,0.04)", border:"1px solid rgba(255,255,255,0.08)", borderRadius:8, padding:"10px 16px", color:"rgba(255,255,255,0.4)", fontWeight:600, fontSize:13, cursor:"pointer" },
+    h2:      { fontSize:15, fontWeight:700, color:"rgba(255,255,255,0.85)", margin:"0 0 16px" },
+    muted:   { color:"rgba(255,255,255,0.3)", fontSize:12 },
   }
 
   return (
-    <div style={S.page}>
-      <div style={{ maxWidth:900, margin:"0 auto" }}>
+    <div className="animate-fade-in">
+      <style>{`@keyframes spin { from { transform: rotate(0deg) } to { transform: rotate(360deg) } }`}</style>
 
-        {/* Header */}
-        <div style={{ display:"flex", alignItems:"center", gap:12, marginBottom:28 }}>
-          <div style={{ background:"rgba(234,179,8,0.1)", border:"1px solid rgba(234,179,8,0.2)", borderRadius:10, padding:10 }}>
-            <Zap size={20} color="#eab308" />
-          </div>
-          <div>
-            <h1 style={{ margin:0, fontSize:22, fontWeight:700, color:"#f1f5f9" }}>Stress Tester</h1>
-            <p style={{ margin:0, fontSize:13, color:"#64748b" }}>Fire real HTTP requests at increasing load tiers · measure latency · get AI analysis</p>
-          </div>
+      {/* Header */}
+      <div style={{ display:"flex", alignItems:"center", gap:12, marginBottom:28 }}>
+        <div style={{ width:36, height:36, borderRadius:10, background:"rgba(234,179,8,0.1)", border:"1px solid rgba(234,179,8,0.2)", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
+          <Zap size={18} color="#eab308" />
         </div>
+        <div>
+          <h1 style={{ margin:0, fontSize:20, fontWeight:800, color:"rgba(255,255,255,0.85)", letterSpacing:"-0.02em" }}>Stress Tester</h1>
+          <p style={{ margin:"2px 0 0", fontSize:11, color:"rgba(255,255,255,0.3)" }}>Fire real HTTP requests at increasing load tiers · measure latency · get AI analysis</p>
+        </div>
+      </div>
 
         {/* IDLE: input form */}
         {phase === "idle" && (
@@ -307,11 +306,11 @@ Return exactly this JSON shape (no markdown, no extra text):
             <div style={{ ...S.card, display:"flex", alignItems:"center", gap:14 }}>
               <Activity size={18} color="#eab308" style={{ animation:"spin 1.2s linear infinite", flexShrink:0 }} />
               <div style={{ flex:1 }}>
-                <div style={{ fontWeight:600, color:"#f1f5f9", fontSize:14, marginBottom:6 }}>
+                <div style={{ fontWeight:600, color:"rgba(255,255,255,0.85)", fontSize:14, marginBottom:6 }}>
                   {phase === "analyzing" ? "Running AI analysis…" : activeTier ? `Probing ${activeTier.toLocaleString()} concurrent users…` : "Starting…"}
                 </div>
                 {phase === "probing" && activeTier && (
-                  <div style={{ background:"rgba(30,41,59,0.6)", borderRadius:4, height:4, overflow:"hidden" }}>
+                  <div style={{ background:"rgba(255,255,255,0.06)", borderRadius:4, height:4, overflow:"hidden" }}>
                     <div style={{ background:"#eab308", height:"100%", width:`${Math.round(tierProgress*100)}%`, transition:"width 0.15s" }} />
                   </div>
                 )}
@@ -326,10 +325,10 @@ Return exactly this JSON shape (no markdown, no extra text):
                   return (
                     <div key={t.count} style={{ ...S.card, padding:"14px 20px", display:"flex", alignItems:"center", gap:16, background:s.bg, border:`1px solid ${s.border}` }}>
                       <div style={{ width:8, height:8, borderRadius:"50%", background:s.dot, flexShrink:0 }} />
-                      <span style={{ fontWeight:600, color:"#f1f5f9", minWidth:90 }}>{t.count.toLocaleString()} users</span>
-                      <span style={{ color:"#94a3b8", fontSize:13 }}>avg <b style={{ color:"#f1f5f9" }}>{t.avgMs}ms</b></span>
-                      <span style={{ color:"#94a3b8", fontSize:13 }}>p99 <b style={{ color:"#f1f5f9" }}>{t.p99Ms}ms</b></span>
-                      <span style={{ color:"#94a3b8", fontSize:13 }}>errors <b style={{ color: t.errorRate > 5 ? "#f87171" : "#f1f5f9" }}>{t.errorRate}%</b></span>
+                      <span style={{ fontWeight:600, color:"rgba(255,255,255,0.85)", minWidth:90 }}>{t.count.toLocaleString()} users</span>
+                      <span style={{ color:"rgba(255,255,255,0.4)", fontSize:13 }}>avg <b style={{ color:"rgba(255,255,255,0.85)" }}>{t.avgMs}ms</b></span>
+                      <span style={{ color:"rgba(255,255,255,0.4)", fontSize:13 }}>p99 <b style={{ color:"rgba(255,255,255,0.85)" }}>{t.p99Ms}ms</b></span>
+                      <span style={{ color:"rgba(255,255,255,0.4)", fontSize:13 }}>errors <b style={{ color: t.errorRate > 5 ? "#f87171" : "rgba(255,255,255,0.85)" }}>{t.errorRate}%</b></span>
                       <span style={{ marginLeft:"auto", fontSize:11, color:s.dot, fontWeight:600 }}>{s.label}</span>
                     </div>
                   )
@@ -347,12 +346,12 @@ Return exactly this JSON shape (no markdown, no extra text):
             <div style={{ ...S.card, display:"flex", alignItems:"center", gap:28 }}>
               <ScoreRing score={analysis.overallScore} />
               <div style={{ flex:1 }}>
-                <div style={{ fontSize:20, fontWeight:700, color:"#f1f5f9", marginBottom:6 }}>{analysis.verdict}</div>
-                <div style={{ fontSize:13, color:"#94a3b8", marginBottom:4 }}>
-                  <span style={{ color:"#64748b" }}>Breaking point:</span> {analysis.breakingPoint}
+                <div style={{ fontSize:20, fontWeight:700, color:"rgba(255,255,255,0.85)", marginBottom:6 }}>{analysis.verdict}</div>
+                <div style={{ fontSize:13, color:"rgba(255,255,255,0.4)", marginBottom:4 }}>
+                  <span style={{ color:"rgba(255,255,255,0.25)" }}>Breaking point:</span> {analysis.breakingPoint}
                 </div>
-                <div style={{ fontSize:13, color:"#94a3b8" }}>
-                  <span style={{ color:"#64748b" }}>Bottleneck:</span> {analysis.bottleneck}
+                <div style={{ fontSize:13, color:"rgba(255,255,255,0.4)" }}>
+                  <span style={{ color:"rgba(255,255,255,0.25)" }}>Bottleneck:</span> {analysis.bottleneck}
                 </div>
               </div>
               <div style={{ display:"flex", gap:8 }}>
@@ -376,12 +375,12 @@ Return exactly this JSON shape (no markdown, no extra text):
                       <stop offset="95%" stopColor="#f97316" stopOpacity={0} />
                     </linearGradient>
                   </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(30,41,59,0.8)" />
-                  <XAxis dataKey="name" stroke="#475569" tick={{ fill:"#64748b", fontSize:11 }} label={{ value:"concurrent users", position:"insideBottom", offset:-2, fill:"#475569", fontSize:11 }} />
-                  <YAxis stroke="#475569" tick={{ fill:"#64748b", fontSize:11 }} unit="ms" />
+                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.08)" />
+                  <XAxis dataKey="name" stroke="rgba(255,255,255,0.15)" tick={{ fill:"rgba(255,255,255,0.25)", fontSize:11 }} label={{ value:"concurrent users", position:"insideBottom", offset:-2, fill:"rgba(255,255,255,0.15)", fontSize:11 }} />
+                  <YAxis stroke="rgba(255,255,255,0.15)" tick={{ fill:"rgba(255,255,255,0.25)", fontSize:11 }} unit="ms" />
                   <Tooltip
-                    contentStyle={{ background:"rgba(15,23,42,0.95)", border:"1px solid rgba(30,41,59,0.8)", borderRadius:8, fontSize:12 }}
-                    labelStyle={{ color:"#94a3b8" }}
+                    contentStyle={{ background:"#0a0a0a", border:"1px solid rgba(255,255,255,0.08)", borderRadius:8, fontSize:12 }}
+                    labelStyle={{ color:"rgba(255,255,255,0.4)" }}
                     formatter={(v, n) => [`${v}ms`, n === "avg" ? "Avg latency" : "p99 latency"]}
                   />
                   <Area type="monotone" dataKey="avg" stroke="#eab308" fill="url(#ga)" strokeWidth={2} dot={false} />
@@ -389,10 +388,10 @@ Return exactly this JSON shape (no markdown, no extra text):
                 </AreaChart>
               </ResponsiveContainer>
               <div style={{ display:"flex", gap:16, marginTop:12 }}>
-                <span style={{ fontSize:11, color:"#94a3b8", display:"flex", alignItems:"center", gap:6 }}>
+                <span style={{ fontSize:11, color:"rgba(255,255,255,0.4)", display:"flex", alignItems:"center", gap:6 }}>
                   <span style={{ width:16, height:2, background:"#eab308", display:"inline-block" }} /> Avg
                 </span>
-                <span style={{ fontSize:11, color:"#94a3b8", display:"flex", alignItems:"center", gap:6 }}>
+                <span style={{ fontSize:11, color:"rgba(255,255,255,0.4)", display:"flex", alignItems:"center", gap:6 }}>
                   <span style={{ width:16, height:2, background:"#f97316", display:"inline-block" }} /> p99
                 </span>
               </div>
@@ -409,8 +408,8 @@ Return exactly this JSON shape (no markdown, no extra text):
                   return (
                     <div key={i} style={{ display:"flex", alignItems:"center", gap:14, padding:"12px 16px", background:s.bg, border:`1px solid ${s.border}`, borderRadius:8 }}>
                       <div style={{ width:8, height:8, borderRadius:"50%", background:s.dot, flexShrink:0 }} />
-                      <span style={{ fontWeight:600, color:"#f1f5f9", minWidth:100 }}>{(t.count||"").toLocaleString()} users</span>
-                      <span style={{ flex:1, fontSize:13, color:"#94a3b8" }}>{t.note}</span>
+                      <span style={{ fontWeight:600, color:"rgba(255,255,255,0.85)", minWidth:100 }}>{(t.count||"").toLocaleString()} users</span>
+                      <span style={{ flex:1, fontSize:13, color:"rgba(255,255,255,0.4)" }}>{t.note}</span>
                       <span style={{ fontSize:11, fontWeight:600, color:s.dot }}>{s.label}</span>
                     </div>
                   )
@@ -426,7 +425,7 @@ Return exactly this JSON shape (no markdown, no extra text):
                   {analysis.recommendations.map((r, i) => (
                     <div key={i} style={{ display:"flex", gap:12, alignItems:"flex-start", padding:"12px 14px", background:"rgba(234,179,8,0.04)", border:"1px solid rgba(234,179,8,0.12)", borderRadius:8 }}>
                       <TrendingUp size={15} color="#eab308" style={{ flexShrink:0, marginTop:1 }} />
-                      <span style={{ fontSize:13, color:"#e2e8f0", lineHeight:1.5 }}>{r.text}</span>
+                      <span style={{ fontSize:13, color:"rgba(255,255,255,0.75)", lineHeight:1.5 }}>{r.text}</span>
                     </div>
                   ))}
                 </div>
@@ -436,9 +435,6 @@ Return exactly this JSON shape (no markdown, no extra text):
           </div>
         )}
 
-      </div>
-
-      <style>{`@keyframes spin { from { transform: rotate(0deg) } to { transform: rotate(360deg) } }`}</style>
     </div>
   )
 }
