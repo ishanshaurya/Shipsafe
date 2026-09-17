@@ -2,6 +2,7 @@ import { useState, useEffect } from "react"
 import { useParams, Link } from "react-router-dom"
 import { Shield, AlertCircle, CheckCircle, AlertTriangle, Info, Clock, ExternalLink, Copy, Check } from "lucide-react"
 import { getReportBySlug } from "../services/supabaseService"
+import ScoreRing from "../components/ScoreRing"
 
 function timeAgo(ts) {
   const diff = Math.floor((Date.now() - new Date(ts)) / 1000)
@@ -35,24 +36,6 @@ const SEV = {
   pass:     { color: "#22c55e", icon: CheckCircle },
   fail:     { color: "#ef4444", icon: AlertCircle },
   warn:     { color: "#eab308", icon: AlertTriangle },
-}
-
-function ScoreRing({ score, color }) {
-  const s = 100, w = 7, r = (s - w) / 2, c = 2 * Math.PI * r
-  const off = c - (score / 100) * c
-  const col = color || (score >= 80 ? "#34d399" : score >= 60 ? "#eab308" : score >= 40 ? "#f97316" : "#ef4444")
-  return (
-    <div style={{ position: "relative", width: s, height: s }}>
-      <svg width={s} height={s} style={{ transform: "rotate(-90deg)" }}>
-        <circle cx={s/2} cy={s/2} r={r} fill="none" stroke="rgba(26,37,64,0.6)" strokeWidth={w} />
-        <circle cx={s/2} cy={s/2} r={r} fill="none" stroke={col} strokeWidth={w} strokeDasharray={c} strokeDashoffset={off} strokeLinecap="round" style={{ transition: "stroke-dashoffset 1s ease" }} />
-      </svg>
-      <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
-        <span style={{ fontSize: 26, fontWeight: 800, color: col }}>{score}</span>
-        <span style={{ fontSize: 9, color: "#475569" }}>/ 100</span>
-      </div>
-    </div>
-  )
 }
 
 // Renders result_data differently per scan type
@@ -273,7 +256,19 @@ export default function Report() {
         {/* Report header */}
         <div style={{ background: "rgba(15,22,40,0.6)", border: `1px solid ${accentColor}20`, borderRadius: 16, padding: 28, marginBottom: 24 }}>
           <div style={{ display: "flex", alignItems: "flex-start", gap: 20, flexWrap: "wrap" }}>
-            {score !== null && <ScoreRing score={score} color={accentColor} />}
+            {score !== null && (
+              <ScoreRing
+                score={score}
+                ringColor={accentColor}
+                size={100}
+                strokeWidth={7}
+                trackColor="rgba(26,37,64,0.6)"
+                numberFontSize={26}
+                numberFontWeight={800}
+                labelFontSize={9}
+                labelColor="#475569"
+              />
+            )}
             <div style={{ flex: 1, minWidth: 200 }}>
               <div style={{ fontSize: 10, color: accentColor, fontWeight: 700, letterSpacing: "0.1em", marginBottom: 6 }}>
                 {SCAN_LABELS[report.scan_type] || report.scan_type} · PUBLIC REPORT

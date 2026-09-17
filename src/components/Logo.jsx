@@ -3,7 +3,6 @@
 // Usage: <Logo size={32} /> or <Logo size={24} />
 
 export default function Logo({ size = 32 }) {
-  const scale = size / 80
   return (
     <svg
       width={size}

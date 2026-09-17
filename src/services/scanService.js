@@ -1,7 +1,8 @@
 // src/services/scanService.js
 //
-// THE ONLY FILE IN THE APP THAT CALLS /api/claude.
+// THE ONLY FILE IN THE APP THAT CALLS /api/gemini.
 import { MOCK_REGULATIONS, mockRegulationResult } from "../data/mockResults.js"
+import { supabase } from "../lib/supabase.js"
 //
 // Every tool calls callAI(prompt, options) — one function, one place.
 // If the proxy URL changes, the request format changes, or we swap AI
@@ -11,164 +12,22 @@ import { MOCK_REGULATIONS, mockRegulationResult } from "../data/mockResults.js"
 //   { content: <parsed object>, error: <string | null> }
 // — content is already parsed from JSON so callers never touch JSON.parse()
 
+// The API verifies this server-side (see api/gemini.js) — every AI call
+// needs the caller's Supabase session attached, or it's rejected with 401.
+async function authHeader() {
+  const { data: { session } } = await supabase.auth.getSession()
+  return session ? { Authorization: `Bearer ${session.access_token}` } : {}
+}
+
 // ─────────────────────────────────────────────
-// SYSTEM PROMPTS
-// Kept here for client-side tool validation only.
-// The proxy selects the actual system prompt server-side
-// based on the tool name — these strings are NOT sent to the server.
+// TOOLS
+// Names only — client just needs to know which tool names are valid.
+// The proxy (api/gemini.js) owns the actual system prompt text and
+// selects it server-side based on the tool name; that text is never
+// sent to or from the client.
 // ─────────────────────────────────────────────
 
-const SYSTEM_PROMPTS = {
-  debugger: `You are ShipSafe AI Debugger — an expert code reviewer that finds bugs, security vulnerabilities, and "vibe-code" smells.
-
-You MUST respond with ONLY valid JSON — no markdown, no backticks, no explanation outside the JSON.
-
-CRITICAL: Keep your response concise. Maximum 8 issues. Combine similar issues into one.
-
-Response format:
-{
-  "healthScore": <number 0-100>,
-  "summary": "<one sentence>",
-  "stats": { "totalIssues": <n>, "critical": <n>, "high": <n>, "medium": <n>, "low": <n> },
-  "issues": [
-    {
-      "id": <number>,
-      "line": <number or null>,
-      "severity": "critical" | "high" | "medium" | "low",
-      "category": "security" | "bug" | "vibecode" | "style",
-      "title": "<short title>",
-      "description": "<1 sentence>",
-      "codeSnippet": "<short problematic code or null>",
-      "fix": "<short fix>"
-    }
-  ],
-  "positives": ["<short positive>"]
-}
-
-CREDENTIAL SCAN: Also check for hardcoded secrets — API keys, tokens, passwords, private keys, connection strings. Flag these as severity 'critical', category 'security', with title starting with '🔑 Hardcoded credential:'. High-entropy strings (random 20+ char alphanumeric) should also be flagged even if purpose is unclear.
-
-Rules:
-- MAX 8 issues. Prioritize the most important ones.
-- Keep descriptions to 1 sentence. Keep fixes short.
-- "vibecode" = AI-generated code smells: no error handling, hardcoded values, console.log everywhere, unused vars.
-- healthScore: 90-100 excellent, 70-89 good, 40-69 needs work, 0-39 critical.
-- Respond ONLY with the JSON object.`,
-
-  audit: `You are ShipSafe Vibe-Code Auditor — you evaluate whether a project was responsibly built or hastily AI-generated.
-
-You MUST respond with ONLY valid JSON — no markdown, no backticks, no explanation outside the JSON.
-
-Response format:
-{
-  "overallScore": <number 0-100>,
-  "summary": "<2 sentences>",
-  "categories": {
-    "security":        { "score": <0-100>, "label": "<Good|Needs Work|Critical>", "issues": ["<issue>"] },
-    "codeQuality":     { "score": <0-100>, "label": "<Good|Needs Work|Critical>", "issues": ["<issue>"] },
-    "maintainability": { "score": <0-100>, "label": "<Good|Needs Work|Critical>", "issues": ["<issue>"] },
-    "testCoverage":    { "score": <0-100>, "label": "<Good|Needs Work|Critical>", "issues": ["<issue>"] },
-    "deployReadiness": { "score": <0-100>, "label": "<Good|Needs Work|Critical>", "issues": ["<issue>"] }
-  },
-  "vibeCodePatterns": ["<detected AI-generated pattern>"],
-  "actionItems": [
-    { "priority": "high" | "medium" | "low", "item": "<concrete action>" }
-  ]
-}
-
-Rules:
-- Max 3 issues per category. Max 5 action items.
-- vibeCodePatterns: look for everything-in-one-file, no types, console.log everywhere, no tests, copy-paste blocks, hallucinated imports.
-- Respond ONLY with the JSON object.`,
-
-  loopholes: `You are ShipSafe Legal Analyst — you find regulatory grey areas and legal ambiguities in AI regulations that developers should know about.
-
-You MUST respond with ONLY valid JSON — no markdown, no backticks, no explanation outside the JSON.
-
-Response format:
-{
-  "riskScore": <number 0-100, where 100 = maximum legal risk>,
-  "summary": "<2 sentences>",
-  "greyAreas": [
-    {
-      "id": <number>,
-      "regulation": "<regulation name>",
-      "country": "<country>",
-      "issue": "<what is ambiguous>",
-      "risk": "high" | "medium" | "low",
-      "competitorExploit": "<what a less ethical competitor could do here>",
-      "defensiveAction": "<what you should do proactively>"
-    }
-  ],
-  "upcomingChanges": ["<regulation in draft/proposed stage that may close a gap>"],
-  "recommendations": ["<concrete recommendation>"]
-}
-
-Rules:
-- Max 6 grey areas. Max 3 upcoming changes. Max 4 recommendations.
-- Be specific about which regulation and which clause is ambiguous.
-- riskScore: 0-30 low, 31-60 moderate, 61-100 high.
-- Respond ONLY with the JSON object.`,
-
-  "deploy-check": `You are ShipSafe Deploy Checker — you validate deployment configurations and catch production gotchas before they cause outages.
-
-You MUST respond with ONLY valid JSON — no markdown, no backticks, no explanation outside the JSON.
-
-Response format:
-{
-  "readinessScore": <number 0-100>,
-  "summary": "<2 sentences>",
-  "checks": [
-    {
-      "id": <number>,
-      "category": "env" | "security" | "performance" | "monitoring" | "database" | "cors",
-      "name": "<check name>",
-      "status": "pass" | "warn" | "fail",
-      "detail": "<what was found>",
-      "fix": "<what to do>"
-    }
-  ],
-  "platformNotes": ["<platform-specific advice>"],
-  "criticalBlockers": ["<must fix before shipping>"]
-}
-
-Rules:
-- Max 10 checks. Flag both missing things AND misconfigurations.
-- criticalBlockers: only items that WILL cause production failures.
-- readinessScore: 90-100 ship it, 70-89 minor fixes, 40-69 needs work, 0-39 not ready.
-- Respond ONLY with the JSON object.`,
-
-  "stress-test": `You are ShipSafe Stress Tester — you predict bottlenecks and failure points in a described architecture under load.
-
-You MUST respond with ONLY valid JSON — no markdown, no backticks, no explanation outside the JSON.
-
-Response format:
-{
-  "summary": "<2 sentences>",
-  "tiers": [
-    {
-      "users": <number>,
-      "label": "<e.g. '10 concurrent users'>",
-      "status": "green" | "yellow" | "red",
-      "responseTime": "<estimated p95 response time>",
-      "bottleneck": "<which component breaks first or null>",
-      "notes": "<what happens at this tier>"
-    }
-  ],
-  "weakPoints": [
-    { "component": "<name>", "issue": "<what breaks>", "fix": "<how to fix>" }
-  ],
-  "safeCapacity": "<estimated safe concurrent user count>",
-  "recommendations": ["<scaling recommendation>"]
-}
-
-Rules:
-- Always include tiers for 10, 100, 1000, and 10000 users.
-- weakPoints: max 5. recommendations: max 4.
-- Be honest that this is AI-predicted, not real load testing.
-- Respond ONLY with the JSON object.`,
-
-  regulations: `You are a global AI regulation expert. Return ONLY valid JSON, no markdown, no backticks, no explanation. Only include regulations you are confident are real. If unsure, omit it. Return maximum 4 regulations. Each summary max 2 sentences. Checklist max 4 items. Checklist items must be actionable and testable (e.g. 'Add watermark to AI-generated media'), never generic advice like 'ensure compliance'.`,
-}
+const TOOLS = new Set(["debugger", "audit", "loopholes", "deploy-check", "stress-test", "regulations"])
 
 // ─────────────────────────────────────────────
 // USER PROMPT BUILDERS
@@ -227,7 +86,7 @@ function buildUserPrompt(tool, payload) {
 // before they cause confusing UI errors downstream.
 // ─────────────────────────────────────────────
 
-function validate(tool, parsed) {
+export function validate(tool, parsed) {
   switch (tool) {
     case "debugger":
       if (typeof parsed.healthScore !== "number") throw new Error("Missing healthScore")
@@ -305,14 +164,13 @@ export function extractScore(tool, parsed) {
  */
 export async function callAIStream(tool, payload, onChunk) {
   try {
-    const systemPrompt = SYSTEM_PROMPTS[tool]
-    if (!systemPrompt) return { content: null, error: `Unknown tool: "${tool}"` }
+    if (!TOOLS.has(tool)) return { content: null, error: `Unknown tool: "${tool}"` }
 
     const userPrompt = buildUserPrompt(tool, payload)
 
-    const response = await fetch("/api/claude", {
+    const response = await fetch("/api/gemini", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", ...(await authHeader()) },
       body: JSON.stringify({ tool, userPrompt, stream: true }),
     })
 
@@ -374,7 +232,7 @@ export async function callAIStream(tool, payload, onChunk) {
 // ─────────────────────────────────────────────
 
 /**
- * Send a request to the AI via the /api/claude proxy.
+ * Send a request to the AI via the /api/gemini proxy.
  *
  * The page passes raw user input (code, description, etc.) as `payload`.
  * This function handles everything else: building prompts, fetching,
@@ -392,17 +250,16 @@ export async function callAIStream(tool, payload, onChunk) {
  */
 export async function callAI(tool, payload) {
   try {
-    const systemPrompt = SYSTEM_PROMPTS[tool]
-    if (!systemPrompt) {
+    if (!TOOLS.has(tool)) {
       return { content: null, error: `Unknown tool: "${tool}"` }
     }
 
     const userPrompt = buildUserPrompt(tool, payload)
 
     // ── Fetch ──────────────────────────────────────────────
-    const response = await fetch("/api/claude", {
+    const response = await fetch("/api/gemini", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", ...(await authHeader()) },
       body: JSON.stringify({ tool, userPrompt }),
     })
 
@@ -442,6 +299,97 @@ export async function callAI(tool, payload) {
   } catch (err) {
     console.error("[scanService] callAI threw:", err)
     return { content: null, error: err.message || "Unexpected error. Please try again." }
+  }
+}
+
+// ─────────────────────────────────────────────
+// RESULT NORMALIZERS
+// The AI returns a lean, validated shape (see the system prompts in api/gemini.js).
+// Each tool's page was built around a richer shape (ids, verdicts,
+// derived stats). These adapters bridge the two so the pages don't
+// need to change — same pattern as normalizeRegulation() below.
+// ─────────────────────────────────────────────
+
+const AUDIT_CATEGORIES = ["security", "quality", "maintainability", "aiPatterns", "deployReady"]
+
+export function normalizeAuditResult(parsed) {
+  const scores = {}
+  const issues = []
+  let fid = 1
+  for (const key of AUDIT_CATEGORIES) {
+    const cat = parsed.categories?.[key] || {}
+    scores[key] = typeof cat.score === "number" ? cat.score : 100
+    ;(Array.isArray(cat.issues) ? cat.issues : []).forEach(i => {
+      issues.push({
+        id: fid++,
+        category: key,
+        severity: ["critical", "high", "medium", "low"].includes(i.severity) ? i.severity : "medium",
+        title: i.title || "Issue",
+        detail: i.detail || "",
+        fix: i.fix || "",
+      })
+    })
+  }
+  const overallScore = typeof parsed.overallScore === "number"
+    ? parsed.overallScore
+    : Math.round(AUDIT_CATEGORIES.reduce((s, k) => s + scores[k], 0) / AUDIT_CATEGORIES.length)
+
+  return {
+    overallScore,
+    scores,
+    summary: parsed.summary || "",
+    issues,
+    verdict: overallScore >= 70 ? "SHIP-READY" : overallScore >= 40 ? "NEEDS WORK" : "NOT SAFE TO SHIP",
+    verdictColor: overallScore >= 70 ? "#22c55e" : overallScore >= 40 ? "#f59e0b" : "#ef4444",
+  }
+}
+
+export function normalizeDeployCheckResult(parsed, platform) {
+  const checks = (Array.isArray(parsed.checks) ? parsed.checks : []).map((c, i) => ({
+    id: c.id ?? i + 1,
+    category: c.category || "general",
+    status: ["pass", "warn", "fail", "info"].includes(c.status) ? c.status : "warn",
+    title: c.name || c.title || "Check",
+    description: c.detail || c.description || "",
+    fix: c.fix || null,
+  }))
+  const passed = checks.filter(c => c.status === "pass").length
+  const failed = checks.filter(c => c.status === "fail").length
+  const warned = checks.filter(c => c.status === "warn").length
+  const info = checks.filter(c => c.status === "info").length
+  const score = typeof parsed.readinessScore === "number" ? parsed.readinessScore : 0
+
+  return {
+    score,
+    readinessScore: score, // kept so extractScore("deploy-check", ...) still finds it
+    platform,
+    checks,
+    summary: parsed.summary || "",
+    verdict: score >= 80 ? "READY" : score >= 50 ? "ALMOST" : "NOT READY",
+    verdictColor: score >= 80 ? "#34d399" : score >= 50 ? "#eab308" : "#ef4444",
+    stats: { passed, failed, warned, info },
+  }
+}
+
+export function normalizeLoopholesResult(parsed) {
+  const greyAreas = (Array.isArray(parsed.greyAreas) ? parsed.greyAreas : []).map((g, i) => ({
+    id: i + 1,
+    regulation: g.regulation || "Unknown regulation",
+    country: g.country || "Unknown",
+    risk: ["high", "medium", "low"].includes(g.risk) ? g.risk : "medium",
+    title: g.title || g.regulation || "Grey area",
+    description: g.description || "",
+    exploitation: g.exploitation || "",
+    recommendation: g.recommendation || "",
+  }))
+  const riskScore = typeof parsed.riskScore === "number" ? Math.min(100, Math.max(0, parsed.riskScore)) : 50
+
+  return {
+    riskScore,
+    summary: parsed.summary || "",
+    greyAreas,
+    defenses: Array.isArray(parsed.defenses) ? parsed.defenses : [],
+    upcoming: Array.isArray(parsed.upcoming) ? parsed.upcoming : [],
   }
 }
 
@@ -508,10 +456,10 @@ Return JSON matching this exact shape:
 }`
 
   try {
-    const response = await fetch("/api/claude", {
+    const response = await fetch("/api/gemini", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ tool: "regulations", userPrompt, systemPrompt: SYSTEM_PROMPTS.regulations }),
+      headers: { "Content-Type": "application/json", ...(await authHeader()) },
+      body: JSON.stringify({ tool: "regulations", userPrompt }),
     })
 
     if (!response.ok) throw new Error(`Server error: ${response.status}`)

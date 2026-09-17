@@ -14,7 +14,6 @@ const FEATURES = [
 
 export default function Landing() {
   const [mouse, setMouse] = useState({ x: 0, y: 0 })
-  const [scrollY, setScrollY] = useState(0)
   const heroRef = useRef(null)
 
   useEffect(() => {
@@ -24,13 +23,8 @@ export default function Landing() {
         y: (e.clientY / window.innerHeight - 0.5) * 2,
       })
     }
-    const handleScroll = () => setScrollY(window.scrollY)
     window.addEventListener("mousemove", handleMouse)
-    window.addEventListener("scroll", handleScroll)
-    return () => {
-      window.removeEventListener("mousemove", handleMouse)
-      window.removeEventListener("scroll", handleScroll)
-    }
+    return () => window.removeEventListener("mousemove", handleMouse)
   }, [])
 
   return (

@@ -2,11 +2,12 @@ import { useState } from "react"
 import { Link } from "react-router-dom"
 import { KeyRound, Search, Loader2, AlertTriangle, ChevronDown, ChevronRight, Globe, Shield, Scale, FileWarning, Lightbulb, TrendingUp } from "lucide-react"
 import { saveScan } from "../services/supabaseService"
-import { extractScore } from "../services/scanService"
+import { callAI, extractScore, normalizeLoopholesResult } from "../services/scanService"
 import { useAuth } from "../hooks/useAuth"
 import { useIsMobile } from "../hooks/useIsMobile"
 import ReportButton from "../components/ReportButton"
 import NextSteps from "../components/NextSteps"
+import ScoreRing from "../components/ScoreRing"
 import { getSuggestions } from "../utils/crossToolSuggestions"
 
 /* ═══════════════════════════════════════════════════════════
@@ -15,11 +16,8 @@ import { getSuggestions } from "../utils/crossToolSuggestions"
    How it works:
    1. Developer describes their AI system
    2. Selects target deployment countries
-   3. Mock engine returns grey areas, exploitation risks,
-      defensive recommendations, and upcoming changes
-
-   Same mock pattern as Debugger — flip USE_MOCK to false
-   when you have API credits for real Claude analysis.
+   3. AI returns grey areas, exploitation risks, defensive
+      recommendations, and upcoming regulatory changes
    ═══════════════════════════════════════════════════════════ */
 
 const COUNTRIES = [
@@ -47,99 +45,6 @@ const SAMPLE_DESCRIPTIONS = [
   { label: "AI Content Moderator", text: "An automated content moderation system that uses LLMs to detect and remove harmful content on a social media platform. Makes autonomous decisions to remove posts without human review." },
   { label: "AI Hiring Screener", text: "An AI system that screens job applications, ranks candidates, and automatically rejects applicants below a certain score threshold. Uses resume parsing and NLP to evaluate qualifications." },
 ]
-
-// Mock analysis data based on selected countries
-function getMockAnalysis(description, selectedCountries) {
-  const greyAreas = []
-  const defenses = []
-  const upcoming = []
-  let riskScore = 45
-
-  if (selectedCountries.includes("eu")) {
-    greyAreas.push(
-      { id: 1, regulation: "EU AI Act", country: "🇪🇺 European Union", risk: "high", title: "High-risk classification ambiguity", description: "The EU AI Act classifies biometric identification and AI systems affecting employment as 'high-risk', but the exact boundaries are unclear. Your system may fall into a grey area where classification depends on interpretation.", exploitation: "A competitor could argue their similar system is 'limited risk' by framing it as an 'assistance tool' rather than an 'automated decision system', avoiding conformity assessment requirements.", recommendation: "Proactively classify your system as high-risk and complete conformity assessment. This protects you legally and builds user trust." },
-      { id: 2, regulation: "EU AI Act", country: "🇪🇺 European Union", risk: "medium", title: "GPAI model transparency obligations", description: "If your system uses a general-purpose AI model (like GPT-4 or Claude), the transparency requirements for GPAI providers vs deployers are still being clarified through implementing acts.", exploitation: "Some companies are claiming they're 'deployers' not 'providers' to avoid GPAI-specific obligations, even when they fine-tune models significantly.", recommendation: "Document your AI supply chain clearly. If you fine-tune a foundation model, you may have provider-level obligations." },
-    )
-    defenses.push("Register with EU AI Office before enforcement deadline (Aug 2026)", "Prepare Technical Documentation per Annex IV requirements", "Implement human oversight mechanisms for any automated decisions")
-    upcoming.push({ regulation: "EU AI Act Implementing Acts", status: "In Progress", expected: "2026", impact: "Will clarify high-risk classification criteria and conformity assessment procedures" })
-    riskScore += 15
-  }
-
-  if (selectedCountries.includes("in")) {
-    greyAreas.push(
-      { id: 3, regulation: "DPDP Act 2023", country: "🇮🇳 India", risk: "high", title: "Consent mechanism for AI training data", description: "The DPDP Act requires explicit consent for data collection, but the definition of 'consent' for AI training data derived from user interactions is undefined. If your system learns from user behavior, you may be collecting training data without proper consent.", exploitation: "Companies are using broad Terms of Service to claim 'implied consent' for AI training, which may not hold up when the Data Protection Board issues enforcement guidelines.", recommendation: "Implement granular consent — separate consent for service usage vs AI training data collection. This future-proofs against stricter interpretation." },
-      { id: 4, regulation: "MeitY AI Advisory", country: "🇮🇳 India", risk: "medium", title: "Pre-approval for untested AI models", description: "MeitY's advisory requires government pre-approval before deploying 'untested' AI models, but 'untested' is not clearly defined. Every AI model could technically be considered 'untested' in a new context.", exploitation: "Some companies deploy first and claim the model was 'tested internally', avoiding the pre-approval process entirely.", recommendation: "Document your testing methodology thoroughly. Maintain an internal AI testing registry that you can present if regulators ask." },
-    )
-    defenses.push("Appoint a Data Protection Officer as required by DPDP Act", "Implement data localisation for Indian user data", "Add visible AI-generated content labels per MeitY advisory")
-    upcoming.push({ regulation: "DPDP Act Enforcement Rules", status: "Draft", expected: "2026", impact: "Will define penalties, consent mechanisms, and cross-border data transfer rules" })
-    riskScore += 12
-  }
-
-  if (selectedCountries.includes("us")) {
-    greyAreas.push(
-      { id: 5, regulation: "US Executive Order on AI Safety", country: "🇺🇸 United States", risk: "medium", title: "Dual-use model reporting thresholds", description: "The EO requires reporting for 'dual-use foundation models' above certain compute thresholds, but the thresholds and definitions are being revised. Systems using fine-tuned models may or may not trigger reporting.", exploitation: "Companies are structuring their training runs to stay just below reporting thresholds, or arguing that fine-tuning doesn't count as 'developing' a foundation model.", recommendation: "Monitor NIST AI RMF updates and BIS reporting requirements. If your system uses a model near the threshold, prepare reporting documentation preemptively." },
-    )
-    defenses.push("Align with NIST AI Risk Management Framework", "Implement AI watermarking for generated content", "Prepare dual-use reporting documentation")
-    upcoming.push({ regulation: "State-level AI Laws", status: "Proposed", expected: "2025-2026", impact: "Colorado, California, and Illinois are advancing AI-specific legislation that may create a patchwork of requirements" })
-    riskScore += 8
-  }
-
-  if (selectedCountries.includes("cn")) {
-    greyAreas.push(
-      { id: 6, regulation: "China AIGC Regulations", country: "🇨🇳 China", risk: "high", title: "Content alignment requirements", description: "AIGC regulations require AI-generated content to 'align with socialist values', but what this means in practice for international AI systems is ambiguous. Content filtering requirements may conflict with global product design.", exploitation: "International companies operating in China maintain separate, heavily filtered model versions, creating compliance complexity and potential for inconsistent user experiences.", recommendation: "If deploying in China, plan for a separate content filtering layer from day one. Do not attempt to use the same model configuration globally." },
-    )
-    defenses.push("Register with CAC (Cyberspace Administration of China)", "Implement content filtering for China-specific requirements", "Maintain separate model configurations per jurisdiction")
-    riskScore += 18
-  }
-
-  if (selectedCountries.includes("uk")) {
-    greyAreas.push(
-      { id: 7, regulation: "UK AI Framework", country: "🇬🇧 United Kingdom", risk: "low", title: "Sector-led regulation gaps", description: "The UK's pro-innovation approach delegates AI regulation to existing sector regulators (FCA, ICO, CMA). This means some AI applications fall between regulators with no clear oversight body.", exploitation: "Companies operating in unregulated sectors can deploy AI with minimal oversight, as no single regulator has claimed jurisdiction.", recommendation: "Even without mandatory requirements, align with the UK's 5 AI principles (safety, transparency, fairness, accountability, contestability) as voluntary best practice." },
-    )
-    defenses.push("Follow ICO AI guidance for data processing", "Implement contestability mechanisms for AI decisions")
-    riskScore += 3
-  }
-
-  // Default grey areas if few countries selected
-  if (greyAreas.length < 2) {
-    greyAreas.push(
-      { id: 10, regulation: "General", country: "🌐 Global", risk: "medium", title: "Cross-border data transfer complexity", description: "Operating across multiple jurisdictions creates data transfer challenges. User data processed by AI in one country may violate data localisation rules in another.", exploitation: "Some companies route AI processing through jurisdictions with minimal regulation to avoid compliance obligations.", recommendation: "Map your data flows. Know where user data is stored, processed, and where AI inference happens. Implement data processing agreements for each jurisdiction." },
-    )
-  }
-
-  riskScore = Math.min(95, Math.max(15, riskScore))
-
-  return {
-    riskScore,
-    summary: riskScore > 60
-      ? `High regulatory exposure across ${selectedCountries.length} jurisdiction${selectedCountries.length > 1 ? "s" : ""}. ${greyAreas.length} grey areas identified with ${greyAreas.filter(g => g.risk === "high").length} high-risk findings.`
-      : riskScore > 35
-      ? `Moderate regulatory exposure. ${greyAreas.length} grey areas found — most manageable with proactive compliance measures.`
-      : `Low regulatory exposure. ${greyAreas.length} minor grey areas found. Your deployment jurisdictions have relatively clear frameworks.`,
-    greyAreas,
-    defenses: [...new Set(defenses)],
-    upcoming,
-  }
-}
-
-function RiskRing({ score }) {
-  const s = 100, w = 6, r = (s - w) / 2, c = 2 * Math.PI * r
-  const off = c - (score / 100) * c
-  // Purple ring always, severity shown by score number color
-  const numCol = score >= 60 ? "#ef4444" : score >= 35 ? "#f59e0b" : "#22c55e"
-  return (
-    <div style={{ position: "relative", width: s, height: s, flexShrink: 0 }}>
-      <svg width={s} height={s} style={{ transform: "rotate(-90deg)" }}>
-        <circle cx={s/2} cy={s/2} r={r} fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth={w} />
-        <circle cx={s/2} cy={s/2} r={r} fill="none" stroke="#a855f7" strokeWidth={w} strokeDasharray={c} strokeDashoffset={off} strokeLinecap="round" style={{ transition: "stroke-dashoffset 1s cubic-bezier(0.16,1,0.3,1)" }} />
-      </svg>
-      <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
-        <span style={{ fontSize: 26, fontWeight: 900, color: numCol, letterSpacing: "-0.04em" }}>{score}</span>
-        <span style={{ fontSize: 9, color: "rgba(255,255,255,0.2)", letterSpacing: "0.08em" }}>RISK</span>
-      </div>
-    </div>
-  )
-}
 
 function GreyAreaCard({ area, open, toggle }) {
   const risk = RISK_COLOR[area.risk] || RISK_COLOR.medium
@@ -186,6 +91,7 @@ export default function Loopholes() {
   const [selected, setSelected] = useState([])
   const [loading, setLoading] = useState(false)
   const [result, setResult] = useState(null)
+  const [error, setError] = useState(null)
   const [suggestions, setSuggestions] = useState([])
   const [exp, setExp] = useState({})
 
@@ -197,12 +103,12 @@ export default function Loopholes() {
 
   const runAnalysis = async () => {
     if (!description.trim() || selected.length === 0 || loading) return
-    setLoading(true)
-    setResult(null)
-    setExp({})
-    setSuggestions([])
-    await new Promise((r) => setTimeout(r, 1500 + Math.random() * 1000))
-    const analysis = getMockAnalysis(description, selected)
+    setLoading(true); setResult(null); setError(null); setExp({}); setSuggestions([])
+
+    const { content, error: aiError } = await callAI("loopholes", { systemDescription: description, countries: selected })
+    if (aiError) { setError(aiError); setLoading(false); return }
+
+    const analysis = normalizeLoopholesResult(content)
     setResult(analysis)
     setSuggestions(getSuggestions("loopholes", analysis))
     if (user) {
@@ -308,6 +214,17 @@ export default function Loopholes() {
               ? <><Loader2 size={16} style={{ animation: "spin 1s linear infinite" }} /> Analyzing regulations...</>
               : <><Search size={15} /> Find Loopholes</>}
           </button>
+
+          {error && (
+            <div style={{ marginTop: 10, padding: "11px 14px", borderRadius: 9, background: "rgba(239,68,68,0.06)", border: "1px solid rgba(239,68,68,0.15)", display: "flex", gap: 10, alignItems: "flex-start" }}>
+              <AlertTriangle size={14} color="#ef4444" style={{ marginTop: 1, flexShrink: 0 }} />
+              <div>
+                <div style={{ fontSize: 12, fontWeight: 600, color: "#ef4444", marginBottom: 2 }}>Analysis failed</div>
+                <div style={{ fontSize: 11, color: "rgba(255,255,255,0.4)", lineHeight: 1.5 }}>{error}</div>
+              </div>
+              <button onClick={() => setError(null)} style={{ marginLeft: "auto", background: "none", border: "none", color: "rgba(255,255,255,0.25)", cursor: "pointer", fontSize: 16, lineHeight: 1 }}>×</button>
+            </div>
+          )}
         </div>
 
         {/* RIGHT — Results */}
@@ -338,7 +255,18 @@ export default function Loopholes() {
 
               {/* Risk score + summary */}
               <div style={{ background: "#0a0a0a", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 12, padding: "20px 22px", display: "flex", gap: 20, alignItems: "center" }}>
-                <RiskRing score={result.riskScore} />
+                <ScoreRing
+                  score={result.riskScore}
+                  size={100}
+                  strokeWidth={6}
+                  trackColor="rgba(255,255,255,0.06)"
+                  ringColor="#a855f7"
+                  numberColor={result.riskScore >= 60 ? "#ef4444" : result.riskScore >= 35 ? "#f59e0b" : "#22c55e"}
+                  numberFontSize={26}
+                  label="RISK"
+                  labelFontSize={9}
+                  labelColor="rgba(255,255,255,0.2)"
+                />
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontSize: 10, fontWeight: 700, color: "rgba(255,255,255,0.2)", letterSpacing: "0.1em", marginBottom: 6 }}>REGULATORY RISK SCORE</div>
                   <p style={{ fontSize: 12, color: "rgba(255,255,255,0.4)", lineHeight: 1.7, margin: 0 }}>{result.summary}</p>

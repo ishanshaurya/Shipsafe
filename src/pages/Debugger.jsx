@@ -7,6 +7,7 @@ import { useAuth } from "../hooks/useAuth"
 import { useIsMobile } from "../hooks/useIsMobile"
 import ReportButton from "../components/ReportButton"
 import NextSteps from "../components/NextSteps"
+import ScoreRing from "../components/ScoreRing"
 import { getSuggestions } from "../utils/crossToolSuggestions"
 
 const LANGS = ["JavaScript","TypeScript","Python","Java","Go","Rust","C++","PHP","Ruby","SQL"]
@@ -51,23 +52,6 @@ app.post('/api/login', (req, res) => {
     }
   });
 });`
-
-function ScoreRing({ score }) {
-  const s=120, w=8, r=(s-w)/2, c=2*Math.PI*r, off=c-(score/100)*c
-  const col = score>=80?"#34d399":score>=60?"#eab308":score>=40?"#f97316":"#ef4444"
-  return (
-    <div style={{ position:"relative", width:s, height:s, flexShrink:0 }}>
-      <svg width={s} height={s} style={{ transform:"rotate(-90deg)" }}>
-        <circle cx={s/2} cy={s/2} r={r} fill="none" stroke="rgba(255,255,255,0.05)" strokeWidth={w}/>
-        <circle cx={s/2} cy={s/2} r={r} fill="none" stroke={col} strokeWidth={w} strokeDasharray={c} strokeDashoffset={off} strokeLinecap="round" style={{ transition:"stroke-dashoffset 1s ease" }}/>
-      </svg>
-      <div style={{ position:"absolute", inset:0, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center" }}>
-        <span style={{ fontSize:30, fontWeight:900, color:col, letterSpacing:"-0.03em" }}>{score}</span>
-        <span style={{ fontSize:10, color:"rgba(255,255,255,0.25)" }}>/ 100</span>
-      </div>
-    </div>
-  )
-}
 
 function IssueCard({ issue, open, toggle }) {
   const s = SEV[issue.severity]||SEV.medium
@@ -489,7 +473,7 @@ export default function Debugger() {
             <div style={{ display:"flex", flexDirection:"column", gap:12 }}>
               {/* Score card */}
               <div style={{ background:"#0a0a0a", border:"1px solid rgba(255,255,255,0.08)", borderRadius:14, padding:22, display:"flex", gap:20, alignItems:"center" }}>
-                <ScoreRing score={result.healthScore}/>
+                <ScoreRing score={result.healthScore} size={120} strokeWidth={8} numberFontSize={30} labelFontSize={10} />
                 <div style={{ flex:1 }}>
                   <div style={{ fontSize:9, color:"rgba(255,255,255,0.25)", letterSpacing:"0.12em", marginBottom:6 }}>CODE HEALTH SCORE</div>
                   <p style={{ fontSize:13, color:"rgba(255,255,255,0.5)", lineHeight:1.7, marginBottom:10 }}>{result.summary}</p>

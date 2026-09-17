@@ -69,6 +69,7 @@ Every tool page includes a **Report** button that generates a public link (`/rep
 | **AI Engine** | Google Gemini 2.5 Flash |
 | **Hosting** | Vercel (free tier) |
 | **API Security** | Vercel Serverless Functions (API keys never reach the browser) |
+| **Testing/CI** | Vitest (unit tests) + GitHub Actions (lint, test, build on every PR) |
 
 ---
 
@@ -76,7 +77,7 @@ Every tool page includes a **Report** button that generates a public link (`/rep
 
 ```
 ┌──────────────────┐         ┌──────────────────┐         ┌──────────────┐
-│   React Frontend │──POST──▶│  /api/claude      │──────▶  │  Gemini 2.5  │
+│   React Frontend │──POST──▶│  /api/gemini      │──────▶  │  Gemini 2.5  │
 │   (Vite + React  │         │  (Vercel          │         │  Flash       │
 │    Router)       │◀──JSON──│   Serverless)     │◀──────  │              │
 └──────────────────┘         └──────────────────┘         └──────────────┘
@@ -85,10 +86,13 @@ Every tool page includes a **Report** button that generates a public link (`/rep
 ```
 
 **Key design decisions:**
-- **Serverless proxy pattern** — React calls `/api/claude`, the serverless function adds the API key and forwards to Gemini. API keys never appear in frontend code.
+- **Serverless proxy pattern** — React calls `/api/gemini`, the serverless function adds the API key and forwards to Gemini. API keys never appear in frontend code.
 - **Service layer** — `scanService.js` centralizes all AI calls. One function (`callAI`) handles prompt building, fetching, JSON parsing, and validation for all 6 tools.
-- **Row Level Security** — Supabase RLS ensures users can only see their own scan history.
+- **Server-side auth on every AI call** — `/api/gemini` verifies the caller's Supabase JWT before doing anything else, so the endpoint can't be reached by an unauthenticated request regardless of what the frontend does or doesn't enforce.
+- **Row Level Security** — Supabase RLS ensures users can only see their own scan history, and the same RLS policies scope the rate-limit counter (see below) to `auth.uid()`.
 - **Regulations page** — uses live Gemini queries with in-memory caching and schema normalization — no static database.
+
+See [Engineering Notes](#engineering-notes) for two bugs found and fixed while building this.
 
 ---
 
@@ -98,11 +102,11 @@ All serverless routes live under `/api/` and run on Vercel only (not available v
 
 | Endpoint | Method | Purpose |
 |---|---|---|
-| `/api/claude` | POST | AI proxy — forwards tool prompts to Gemini 2.5 Flash. Supports streaming on Debugger. Rate-limited to 10 req/min per IP. |
+| `/api/gemini` | POST | AI proxy — forwards tool prompts to Gemini 2.5 Flash. Supports streaming on Debugger. Requires a valid Supabase session (`Authorization: Bearer <access_token>`); rate-limited to 10 req/min per authenticated user, persisted in Postgres. |
 | `/api/github` | POST | Fetches repo file tree and contents via GitHub Trees API for Debugger and Audit scans. |
 | `/api/embed` | POST | Generates vector embeddings for scan results (pgvector similarity search). |
 
-**Example request** (`/api/claude`):
+**Example request** (`/api/gemini`):
 ```json
 {
   "tool": "debugger",
@@ -112,6 +116,26 @@ All serverless routes live under `/api/` and run on Vercel only (not available v
 ```
 
 Allowed `tool` values: `debugger`, `audit`, `loopholes`, `deploy-check`, `stress-test`, `regulations`.
+
+---
+
+## Engineering Notes
+
+Two real bugs found and fixed after the product was already shipped.
+
+### Half the "AI" tools weren't calling the AI
+
+`scanService.js` has one function, `callAI`, that every tool is supposed to route through — it builds the prompt, calls `/api/gemini`, parses the JSON, and validates the response against a per-tool schema. Debugger and Stress Test used it correctly. Audit, Deploy Check, and Loophole Finder didn't: each had a page-local `getMock*()` function doing rule-based regex/string matching against the input, dressed up to look like AI output.
+
+The schemas for those three tools already existed in `callAI`'s validator and were fully correct — nothing was ever calling them. Wiring the pages up to the real path wasn't a one-line fix, though: the mock functions and the AI response schema had diverged. Audit's mock returned five UI-specific category keys (`security`, `quality`, `maintainability`, `aiPatterns`, `deployReady`) with per-issue `severity`/`fix` fields; the AI schema had different category names entirely and only returned issues as plain strings. Fixing it meant reconciling both sides — rewriting the AI prompt schemas to match what the UI actually needed, and adding a thin normalization layer (mirroring a pattern already used for the Regulations tool) so the pages didn't have to change.
+
+**Root cause:** a fallback path built for local development/demo mode never got removed once the real integration landed, and there was no test or type check anywhere that would have caught three tools silently diverging from the module that was supposed to be their only entry point.
+
+### The login wall was client-side only
+
+While testing the fix above, `curl -X POST /api/gemini` with no auth header returned a valid Gemini response — no login required, despite every tool page being wrapped in a `<ProtectedRoute>` in the React Router config. `ProtectedRoute` redirects an unauthenticated browser to `/login`; it does nothing to the API itself. Anyone with the URL could call the AI proxy directly and consume the (metered, billed) Gemini quota.
+
+Fixed by verifying the caller's Supabase JWT server-side in `/api/gemini` before any other work happens, and rebuilding rate limiting around it: instead of Vercel's in-memory, per-IP counter (which reset on every cold start and treated everyone behind the same NAT as one user), the limiter is now a `rate_limits` table in the existing Supabase Postgres database, incremented atomically per `auth.uid()` via a `SECURITY INVOKER` Postgres function — so it's enforced through RLS as the calling user, not a service-role bypass, and it survives restarts.
 
 ---
 
@@ -145,6 +169,8 @@ GEMINI_API_KEY=your_gemini_key
 
 > **Note:** `GEMINI_API_KEY` has no `VITE_` prefix — it runs server-side only and is never exposed to the browser.
 
+Apply the database migrations in `supabase/migrations/` to your Supabase project (SQL editor, or `supabase db push` if you have the CLI linked) — the AI tools won't work without them, since `/api/gemini` now requires the `increment_rate_limit` function they create.
+
 ### Run locally
 
 ```bash
@@ -174,7 +200,7 @@ Add environment variables in Vercel dashboard → Settings → Environment Varia
 ```
 shipsafe/
 ├── api/
-│   ├── claude.js              # Serverless AI proxy → Gemini
+│   ├── gemini.js              # Serverless AI proxy → Gemini
 │   ├── github.js              # GitHub repo file fetcher
 │   └── embed.js               # Vector embedding generator
 ├── src/
@@ -223,8 +249,9 @@ shipsafe/
 | `scan_history` | Stores all scan results (debugger, audit, loopholes, deploy-check, stress-test) |
 | `regulations` | AI regulation data (14 countries) — public read |
 | `reports` | Public shareable scan reports (`/report/:slug`) |
+| `rate_limits` | Per-user, per-time-window request counters backing `/api/gemini`'s rate limit (see `supabase/migrations/0001_rate_limits.sql`) |
 
-All tables use **Row Level Security (RLS)** — users can only access their own data.
+All tables use **Row Level Security (RLS)** — users can only access their own data. Schema changes are version-controlled as SQL migrations under `supabase/migrations/` — apply them via the Supabase SQL editor or `supabase db push`.
 
 ---
 
@@ -256,8 +283,9 @@ All tables use **Row Level Security (RLS)** — users can only access their own 
 - [x] Real endpoint stress testing
 - [ ] Mobile responsive (partial — tool pages done, Dashboard/Landing pending)
 - [ ] Groq fallback API
-- [x] Rate limiting on AI proxy (in-memory, 10 req/min per IP)
-- [ ] Persistent rate limiting (Upstash/Redis)
+- [x] Rate limiting on AI proxy — persistent, per-authenticated-user, Postgres-backed (replaced the original in-memory-per-IP version)
+- [x] Server-side auth check on `/api/gemini` (previously enforced only client-side)
+- [x] Automated tests (Vitest) + CI (GitHub Actions: lint, test, build)
 - [ ] PDF export for reports
 - [ ] Real regulation data API integration
 
@@ -268,10 +296,11 @@ All tables use **Row Level Security (RLS)** — users can only access their own 
 | Problem | Fix |
 |---|---|
 | AI features return errors locally | Use `npx vercel dev` instead of `npm run dev`. The `/api/` routes only run on Vercel. |
-| `Service unavailable` from `/api/claude` | Check `GEMINI_API_KEY` is set in Vercel env vars (no `VITE_` prefix). |
+| `Service unavailable` from `/api/gemini` | Check `GEMINI_API_KEY` is set in Vercel env vars (no `VITE_` prefix). |
 | GitHub repo scan fails | Public repos work without a token. For private repos or higher rate limits, add `GITHUB_TOKEN` to Vercel env vars. |
 | Scan history not saving | Confirm Supabase keys in `.env.local` and that RLS policies are enabled on `scan_history`. |
-| Rate limit hit (429) | Proxy allows 10 requests per minute per IP. Wait 60 seconds or deploy persistent limiting via Upstash. |
+| `401 Sign in required` from `/api/gemini` | The AI tools require a logged-in session — `/api/gemini` verifies your Supabase JWT server-side. Sign in through the UI (curling the endpoint directly won't work without a valid `Authorization: Bearer <token>` header). |
+| Rate limit hit (429) | 10 requests per minute per user, tracked in the `rate_limits` table. Make sure the `0001_rate_limits.sql` migration has been applied to your Supabase project — see [Supabase Schema](#supabase-schema). |
 | Auth redirect loop | Ensure Supabase Auth redirect URL includes your Vercel domain and `http://localhost:5173` for local dev. |
 
 ---

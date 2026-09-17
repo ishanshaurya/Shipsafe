@@ -5,6 +5,7 @@ import { callAI } from "../services/scanService"
 import { saveScan } from "../services/supabaseService"
 import { useAuth } from "../hooks/useAuth"
 import ReportButton from "../components/ReportButton"
+import ScoreRing from "../components/ScoreRing"
 
 const ALL_TIERS = [10, 100, 500, 1000, 5000]
 const BATCH_SIZE = 25
@@ -21,33 +22,11 @@ function tierStatus(t) {
   return "green"
 }
 
-function scoreColor(score) {
-  if (score >= 75) return "#eab308"
-  if (score >= 50) return "#f97316"
-  return "#ef4444"
-}
-
-function ScoreRing({ score }) {
-  const r = 54
-  const circ = 2 * Math.PI * r
-  const offset = circ * (1 - score / 100)
-  const color = scoreColor(score)
-  return (
-    <svg width={128} height={128} style={{ display:"block" }}>
-      <circle cx={64} cy={64} r={r} fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth={10} />
-      <circle
-        cx={64} cy={64} r={r} fill="none"
-        stroke={color} strokeWidth={10}
-        strokeDasharray={circ} strokeDashoffset={offset}
-        strokeLinecap="round"
-        transform="rotate(-90 64 64)"
-        style={{ transition:"stroke-dashoffset 0.6s ease" }}
-      />
-      <text x={64} y={60} textAnchor="middle" fill={color} fontSize={26} fontWeight={700}>{score}</text>
-      <text x={64} y={78} textAnchor="middle" fill="rgba(255,255,255,0.25)" fontSize={11}>/100</text>
-    </svg>
-  )
-}
+const STRESS_SCORE_THRESHOLDS = [
+  { min: 75, color: "#eab308" },
+  { min: 50, color: "#f97316" },
+  { min: 0, color: "#ef4444" },
+]
 
 function p99(sorted) {
   if (!sorted.length) return 0
@@ -344,7 +323,17 @@ Return exactly this JSON shape (no markdown, no extra text):
 
             {/* Score + verdict */}
             <div style={{ ...S.card, display:"flex", alignItems:"center", gap:28 }}>
-              <ScoreRing score={analysis.overallScore} />
+              <ScoreRing
+                score={analysis.overallScore}
+                size={128}
+                strokeWidth={10}
+                trackColor="rgba(255,255,255,0.06)"
+                numberFontSize={26}
+                numberFontWeight={700}
+                label="/100"
+                labelFontSize={11}
+                thresholds={STRESS_SCORE_THRESHOLDS}
+              />
               <div style={{ flex:1 }}>
                 <div style={{ fontSize:20, fontWeight:700, color:"rgba(255,255,255,0.85)", marginBottom:6 }}>{analysis.verdict}</div>
                 <div style={{ fontSize:13, color:"rgba(255,255,255,0.4)", marginBottom:4 }}>
@@ -402,7 +391,6 @@ Return exactly this JSON shape (no markdown, no extra text):
               <h2 style={S.h2}>Tier Breakdown</h2>
               <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
                 {(analysis.tiers || []).map((t, i) => {
-                  const raw = tierResults.find(r => r.count === t.count) || {}
                   const st = t.status in STATUS ? t.status : "green"
                   const s = STATUS[st]
                   return (

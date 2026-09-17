@@ -2,7 +2,7 @@ import { useState } from "react"
 import { Link } from "react-router-dom"
 import { Rocket, Play, Loader2, CheckCircle, AlertTriangle, AlertCircle, X as XIcon, ChevronDown, ChevronRight, Server, Shield, Globe, Key, Database, Wifi } from "lucide-react"
 import { saveScan } from "../services/supabaseService"
-import { extractScore } from "../services/scanService"
+import { callAI, extractScore, normalizeDeployCheckResult } from "../services/scanService"
 import { useAuth } from "../hooks/useAuth"
 import { useIsMobile } from "../hooks/useIsMobile"
 import ReportButton from "../components/ReportButton"
@@ -40,88 +40,6 @@ Rate limiting: None
 Error monitoring: None
 SSL: Vercel auto-SSL`
 
-function getMockDeployCheck(config, platform) {
-  const checks = []
-  let id = 1
-  const configLower = config.toLowerCase()
-
-  // Environment variables
-  if (configLower.includes("api_key") || configLower.includes("secret") || configLower.includes("token")) {
-    if (configLower.includes("next_public") && (configLower.includes("api_key") || configLower.includes("secret"))) {
-      checks.push({ id: id++, category: "env", status: "fail", title: "Secret exposed in NEXT_PUBLIC variable", description: "Variables prefixed with NEXT_PUBLIC are bundled into client JavaScript. API keys and secrets should NEVER use this prefix.", fix: "Remove NEXT_PUBLIC prefix from secret variables. Access them only in server-side code or API routes.", severity: "critical" })
-    }
-    checks.push({ id: id++, category: "env", status: "pass", title: "Environment variables detected", description: "Configuration uses environment variables instead of hardcoded values.", fix: null, severity: "ok" })
-  } else {
-    checks.push({ id: id++, category: "env", status: "warn", title: "No environment variables mentioned", description: "Deployment config should explicitly list required env vars to avoid missing configuration in production.", fix: "Create a .env.example file listing all required variables.", severity: "medium" })
-  }
-
-  // CORS
-  if (configLower.includes("cors: not configured") || configLower.includes("no cors") || !configLower.includes("cors")) {
-    checks.push({ id: id++, category: "security", status: "warn", title: "CORS not explicitly configured", description: "Without explicit CORS configuration, your API may either block legitimate requests or allow unauthorized origins.", fix: `Configure CORS for your specific domain:\n${platform === "vercel" ? "// vercel.json\n{ \"headers\": [{ \"source\": \"/api/(.*)\", \"headers\": [{ \"key\": \"Access-Control-Allow-Origin\", \"value\": \"https://yourdomain.com\" }] }] }" : "Set Access-Control-Allow-Origin to your specific domain."}`, severity: "medium" })
-  } else {
-    checks.push({ id: id++, category: "security", status: "pass", title: "CORS configuration present", description: "CORS is explicitly configured.", fix: null, severity: "ok" })
-  }
-
-  // Rate limiting
-  if (configLower.includes("rate limit") && !configLower.includes("none")) {
-    checks.push({ id: id++, category: "security", status: "pass", title: "Rate limiting configured", description: "API endpoints are protected against abuse.", fix: null, severity: "ok" })
-  } else {
-    checks.push({ id: id++, category: "security", status: "fail", title: "No rate limiting", description: "Without rate limiting, your API is vulnerable to brute force attacks, credential stuffing, and cost-based DDoS (especially with AI API calls that cost money per request).", fix: `Add rate limiting:\n${platform === "vercel" ? "Use Vercel's Edge Middleware or upstash/ratelimit:\nimport { Ratelimit } from '@upstash/ratelimit'" : "Use express-rate-limit or similar middleware."}`, severity: "high" })
-  }
-
-  // Error monitoring
-  if (configLower.includes("sentry") || configLower.includes("datadog") || configLower.includes("monitoring") || configLower.includes("error tracking")) {
-    checks.push({ id: id++, category: "ops", status: "pass", title: "Error monitoring configured", description: "Production errors will be tracked and reported.", fix: null, severity: "ok" })
-  } else {
-    checks.push({ id: id++, category: "ops", status: "warn", title: "No error monitoring", description: "Without error tracking, production bugs go unnoticed until users report them. You lose visibility into app health.", fix: "Add Sentry (free tier):\nnpm install @sentry/nextjs\nnpx @sentry/wizard@latest -i nextjs", severity: "medium" })
-  }
-
-  // SSL
-  if (configLower.includes("ssl") || configLower.includes("https") || platform === "vercel" || platform === "netlify") {
-    checks.push({ id: id++, category: "security", status: "pass", title: "SSL/TLS enabled", description: `${platform === "vercel" || platform === "netlify" ? "Auto-SSL provided by " + platform : "HTTPS is configured."}`, fix: null, severity: "ok" })
-  } else {
-    checks.push({ id: id++, category: "security", status: "fail", title: "SSL/TLS not confirmed", description: "Without HTTPS, all data including auth tokens is transmitted in plaintext.", fix: "Enable SSL. Most platforms provide free auto-SSL.", severity: "critical" })
-  }
-
-  // Security headers
-  checks.push({ id: id++, category: "security", status: "warn", title: "Security headers not configured", description: "Missing headers: Content-Security-Policy, X-Frame-Options, X-Content-Type-Options, Strict-Transport-Security.", fix: `${platform === "vercel" ? "Add to vercel.json or next.config.js:\nheaders: () => [{ source: '/(.*)', headers: [\n  { key: 'X-Frame-Options', value: 'DENY' },\n  { key: 'X-Content-Type-Options', value: 'nosniff' },\n  { key: 'Referrer-Policy', value: 'origin-when-cross-origin' }\n]}]" : "Add security headers via middleware or server config."}`, severity: "medium" })
-
-  // Database connection
-  if (configLower.includes("database") || configLower.includes("supabase") || configLower.includes("postgres") || configLower.includes("mongo")) {
-    checks.push({ id: id++, category: "database", status: "pass", title: "Database connection configured", description: "Database is part of the deployment architecture.", fix: null, severity: "ok" })
-    if (!configLower.includes("pool") && !configLower.includes("connection limit")) {
-      checks.push({ id: id++, category: "database", status: "warn", title: "No connection pooling mentioned", description: "Serverless functions open new DB connections per request. Without pooling, you'll exhaust database connections under load.", fix: `${platform === "vercel" ? "Use Supabase connection pooler (port 6543) or Prisma Accelerate." : "Configure connection pooling (PgBouncer for PostgreSQL, or ORM-level pooling)."}`, severity: "medium" })
-    }
-  }
-
-  // Platform-specific checks
-  if (platform === "vercel") {
-    checks.push({ id: id++, category: "platform", status: "info", title: "Vercel: 10s serverless function timeout (free tier)", description: "Free tier functions timeout after 10 seconds. AI API calls may exceed this for complex analysis.", fix: "Use streaming responses or upgrade to Pro ($20/mo) for 60s timeout. Alternatively, use Vercel Edge Functions (no timeout).", severity: "info" })
-    checks.push({ id: id++, category: "platform", status: "info", title: "Vercel: 100K function invocations/month (free tier)", description: "Each API call counts as one invocation. With AI features, you could hit this limit with ~100 daily active users.", fix: "Add client-side caching and debouncing. Rate limit to 10 scans/user/day.", severity: "info" })
-  }
-
-  // Backup
-  if (!configLower.includes("backup")) {
-    checks.push({ id: id++, category: "ops", status: "warn", title: "No backup strategy mentioned", description: "If your database goes down or data is corrupted, recovery depends on backups.", fix: "Supabase includes daily backups on Pro plan. For free tier, set up pg_dump on a cron schedule.", severity: "low" })
-  }
-
-  const passed = checks.filter(c => c.status === "pass").length
-  const failed = checks.filter(c => c.status === "fail").length
-  const warned = checks.filter(c => c.status === "warn").length
-  const total = checks.filter(c => c.status !== "info").length
-  const score = total > 0 ? Math.round((passed / total) * 100) : 0
-
-  return {
-    score,
-    platform,
-    checks,
-    summary: score >= 80 ? `Deploy-ready! ${passed}/${total} checks passed.` : score >= 50 ? `Almost there — ${failed} critical issues and ${warned} warnings to address.` : `Not ready — ${failed} failures and ${warned} warnings need fixing before deployment.`,
-    verdict: score >= 80 ? "READY" : score >= 50 ? "ALMOST" : "NOT READY",
-    verdictColor: score >= 80 ? "#34d399" : score >= 50 ? "#eab308" : "#ef4444",
-    stats: { passed, failed, warned, info: checks.filter(c => c.status === "info").length },
-  }
-}
-
 const STATUS_ICON = { pass: CheckCircle, fail: AlertCircle, warn: AlertTriangle, info: Globe }
 const STATUS_COLOR = { pass: "#34d399", fail: "#ef4444", warn: "#eab308", info: "#38bdf8" }
 
@@ -132,6 +50,7 @@ export default function DeployCheck() {
   const [platform, setPlatform] = useState("vercel")
   const [loading, setLoading] = useState(false)
   const [result, setResult] = useState(null)
+  const [error, setError] = useState(null)
   const [suggestions, setSuggestions] = useState([])
   const [exp, setExp] = useState({})
 
@@ -139,9 +58,12 @@ export default function DeployCheck() {
 
   const runCheck = async () => {
     if (!config.trim() || loading) return
-    setLoading(true); setResult(null); setExp({}); setSuggestions([])
-    await new Promise(r => setTimeout(r, 1200 + Math.random() * 800))
-    const res = getMockDeployCheck(config, platform)
+    setLoading(true); setResult(null); setError(null); setExp({}); setSuggestions([])
+
+    const { content, error: aiError } = await callAI("deploy-check", { setupDescription: config, platform })
+    if (aiError) { setError(aiError); setLoading(false); return }
+
+    const res = normalizeDeployCheckResult(content, platform)
     setResult(res)
     setSuggestions(getSuggestions("deploy-check", res))
     if (user) {
@@ -234,6 +156,17 @@ export default function DeployCheck() {
               : <><Rocket size={15} /> Run Deploy Check</>
             }
           </button>
+
+          {error && (
+            <div style={{ marginTop: 10, padding: "11px 14px", borderRadius: 9, background: "rgba(239,68,68,0.06)", border: "1px solid rgba(239,68,68,0.15)", display: "flex", gap: 10, alignItems: "flex-start" }}>
+              <AlertTriangle size={14} color="#ef4444" style={{ marginTop: 1, flexShrink: 0 }} />
+              <div>
+                <div style={{ fontSize: 12, fontWeight: 600, color: "#ef4444", marginBottom: 2 }}>Deploy check failed</div>
+                <div style={{ fontSize: 11, color: "rgba(255,255,255,0.4)", lineHeight: 1.5 }}>{error}</div>
+              </div>
+              <button onClick={() => setError(null)} style={{ marginLeft: "auto", background: "none", border: "none", color: "rgba(255,255,255,0.25)", cursor: "pointer", fontSize: 16, lineHeight: 1 }}>×</button>
+            </div>
+          )}
         </div>
 
         {/* Right — Results */}

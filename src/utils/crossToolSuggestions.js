@@ -13,8 +13,6 @@
  * @returns {Array<{ tool: string, path: string, icon: string, title: string, reason: string, priority: "high" | "medium" | "low" }>}
  */
 export function getSuggestions(tool, result) {
-  const suggestions = []
-
   switch (tool) {
     case "debugger":
       return getDebuggerSuggestions(result)
@@ -88,7 +86,6 @@ function getDebuggerSuggestions(result) {
 function getAuditSuggestions(result) {
   const suggestions = []
   const scores = result.scores || result.categories || {}
-  const issues = result.issues || result.actionItems || []
 
   // Low security score → suggest Debugger for deep dive
   const secScore = scores.security?.score ?? scores.security ?? 100

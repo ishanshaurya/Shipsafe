@@ -2,7 +2,7 @@ import { useState } from "react"
 import { Link } from "react-router-dom"
 import { Search, Play, Loader2, AlertTriangle, CheckCircle, ChevronDown, ChevronRight, FileCode, Shield, Zap, TestTube, Lock, PackageCheck, Sparkles, Github, Star, File } from "lucide-react"
 import { saveScan } from "../services/supabaseService"
-import { extractScore } from "../services/scanService"
+import { callAI, extractScore, normalizeAuditResult } from "../services/scanService"
 import { useAuth } from "../hooks/useAuth"
 import { useIsMobile } from "../hooks/useIsMobile"
 import ReportButton from "../components/ReportButton"
@@ -116,78 +116,7 @@ function App() {
 
 export default App;`
 
-function getMockAudit(code) {
-  const lines = code.split("\n")
-  const lineCount = lines.length
-  const findings = []
-  let fid = 1
-
-  // Security checks
-  const securityIssues = []
-  if (!code.includes("helmet") && !code.includes("security headers")) securityIssues.push({ id: fid++, title: "No security headers (helmet)", severity: "high", detail: "Express app has no helmet middleware. Missing headers: CSP, HSTS, X-Frame-Options, X-Content-Type-Options.", fix: "npm install helmet && app.use(helmet())" })
-  if (code.includes("cors()") || code.includes('cors("*")') || code.includes("cors: *")) securityIssues.push({ id: fid++, title: "CORS allows all origins", severity: "high", detail: "Wildcard CORS lets any website make requests to your API. Credential theft possible.", fix: "cors({ origin: ['https://yourdomain.com'], credentials: true })" })
-  if (!code.includes("rateLimit") && !code.includes("rate-limit") && !code.includes("throttle")) securityIssues.push({ id: fid++, title: "No rate limiting", severity: "medium", detail: "API has no rate limiting. Vulnerable to brute force and DDoS.", fix: "npm install express-rate-limit && app.use(rateLimit({ windowMs: 15*60*1000, max: 100 }))" })
-  if (!code.includes("validate") && !code.includes("joi") && !code.includes("zod") && !code.includes("yup")) securityIssues.push({ id: fid++, title: "No input validation", severity: "high", detail: "No validation library detected. User input goes directly to database/API without sanitization.", fix: "Use zod or joi to validate all request bodies before processing." })
-  if (code.includes("req.body") && !code.includes("sanitize")) securityIssues.push({ id: fid++, title: "No input sanitization", severity: "medium", detail: "Request body is used directly without sanitization. XSS and injection risk.", fix: "Sanitize all user inputs before storing or displaying." })
-  const secScore = Math.max(0, 100 - securityIssues.length * 18)
-
-  // Code quality checks
-  const qualityIssues = []
-  if (!code.includes("try") && !code.includes("catch")) qualityIssues.push({ id: fid++, title: "No try/catch error handling", severity: "critical", detail: "Zero error handling found. Any async failure will crash the server or return 500 without useful error messages.", fix: "Wrap all async route handlers in try/catch blocks." })
-  if (code.includes("console.log")) qualityIssues.push({ id: fid++, title: "Console.log used instead of logger", severity: "low", detail: "Debug statements found. Use a structured logger (winston, pino) with log levels.", fix: "Replace console.log with logger.info() / logger.error()" })
-  if (code.match(/app\.(get|post|put|delete)/g)?.length > 2 && !code.includes("router") && !code.includes("Router")) qualityIssues.push({ id: fid++, title: "All routes in single file", severity: "medium", detail: "Multiple routes defined in one file without Express Router. Hard to maintain as the app grows.", fix: "Split into route files: routes/users.js, routes/chat.js, etc." })
-  if (!code.includes("async") && code.includes("await")) qualityIssues.push({ id: fid++, title: "Await without async", severity: "high", detail: "Code uses await but function may not be marked async.", fix: "Ensure all functions using await are declared as async." })
-  const qualScore = Math.max(0, 100 - qualityIssues.length * 20)
-
-  // Maintainability checks
-  const maintIssues = []
-  if (!code.includes("// ") && !code.includes("/* ") && !code.includes("/** ")) maintIssues.push({ id: fid++, title: "No code comments", severity: "medium", detail: "No documentation or comments found. Other developers (or future you) will struggle to understand the codebase.", fix: "Add JSDoc comments to functions and inline comments for complex logic." })
-  if (lineCount > 50 && !code.includes("import") && !code.includes("require") && !code.includes("module")) maintIssues.push({ id: fid++, title: "No modular structure", severity: "medium", detail: "Large codebase without imports/exports suggests everything is in one file.", fix: "Split into modules: models/, routes/, middleware/, utils/" })
-  if (!code.includes(".env") && !code.includes("process.env") && code.includes("http")) maintIssues.push({ id: fid++, title: "Hardcoded configuration", severity: "medium", detail: "URLs and config values are hardcoded instead of using environment variables.", fix: "Use dotenv and process.env for all configuration." })
-  if (code.includes("process.env")) maintIssues.push({ id: fid++, title: "No .env.example file mentioned", severity: "low", detail: "Uses env vars but no .env.example template for other developers.", fix: "Create .env.example with all required variables (without values)." })
-  const maintScore = Math.max(0, 100 - maintIssues.length * 15)
-
-  // AI pattern detection
-  const aiIssues = []
-  if (!code.includes("test") && !code.includes("spec") && !code.includes("jest") && !code.includes("mocha") && !code.includes("vitest")) aiIssues.push({ id: fid++, title: "Zero tests detected", severity: "critical", detail: "No test files, test runner, or testing library found. This is the #1 indicator of vibe-coded projects — AI generates features but never tests.", fix: "Add at minimum: unit tests for utils, integration tests for API routes." })
-  if (code.includes("cors()") && !code.includes("origin")) aiIssues.push({ id: fid++, title: "AI-generated CORS — too permissive", severity: "high", detail: "cors() with no config is a classic AI-generated pattern. Every AI code generator defaults to wide-open CORS.", fix: "Configure specific origins: cors({ origin: process.env.ALLOWED_ORIGINS?.split(',') })" })
-  if (code.match(/require\(['"][^'"]+['"]\)/g)?.length > 3 && !code.includes("package-lock") && !code.includes("lock")) aiIssues.push({ id: fid++, title: "No lockfile referenced", severity: "low", detail: "Multiple dependencies but no package-lock.json mentioned. Dependency versions may drift.", fix: "Commit package-lock.json and use npm ci in CI/CD." })
-  if (code.includes("mongoose.connect") && !code.includes("useNewUrlParser") && !code.includes("connection error")) aiIssues.push({ id: fid++, title: "Database connection without error handling", severity: "high", detail: "MongoDB connection has no error handler. If the DB is down, the app silently fails. Vibe-coders connect and forget.", fix: "mongoose.connect(uri).then(() => logger.info('DB connected')).catch(err => { logger.error(err); process.exit(1) })" })
-  const aiScore = Math.max(0, 100 - aiIssues.length * 22)
-
-  // Deploy readiness
-  const deployIssues = []
-  if (!code.includes("PORT") && code.includes("3000")) deployIssues.push({ id: fid++, title: "Hardcoded port number", severity: "medium", detail: "Port 3000 is hardcoded. Most hosting platforms assign a dynamic port via PORT env var.", fix: "const PORT = process.env.PORT || 3000" })
-  if (!code.includes("Sentry") && !code.includes("monitoring") && !code.includes("errorHandler")) deployIssues.push({ id: fid++, title: "No error monitoring", severity: "medium", detail: "No error tracking service (Sentry, DataDog, etc.) configured. Production errors will go unnoticed.", fix: "Add Sentry: npm install @sentry/node && Sentry.init({ dsn: process.env.SENTRY_DSN })" })
-  if (!code.includes("graceful") && !code.includes("SIGTERM") && !code.includes("shutdown")) deployIssues.push({ id: fid++, title: "No graceful shutdown", severity: "low", detail: "No SIGTERM handler. Container restarts will drop in-flight requests.", fix: "process.on('SIGTERM', () => { server.close(() => process.exit(0)) })" })
-  if (code.includes("*") && code.includes("dependencies")) deployIssues.push({ id: fid++, title: "Wildcard dependency version", severity: "high", detail: "Using '*' as version means any version gets installed. Breaking changes will randomly break your app.", fix: "Pin to specific versions: cors: '^2.8.5' not '*'" })
-  const deployScore = Math.max(0, 100 - deployIssues.length * 18)
-
-  const overallScore = Math.round((secScore + qualScore + maintScore + aiScore + deployScore) / 5)
-
-  const allIssues = [
-    ...securityIssues.map(i => ({ ...i, category: "security" })),
-    ...qualityIssues.map(i => ({ ...i, category: "quality" })),
-    ...maintIssues.map(i => ({ ...i, category: "maintainability" })),
-    ...aiIssues.map(i => ({ ...i, category: "aiPatterns" })),
-    ...deployIssues.map(i => ({ ...i, category: "deployReady" })),
-  ]
-
-  return {
-    overallScore,
-    scores: { security: secScore, quality: qualScore, maintainability: maintScore, aiPatterns: aiScore, deployReady: deployScore },
-    summary: overallScore >= 70
-      ? `This project scores ${overallScore}/100. Good foundation with ${allIssues.length} areas for improvement.`
-      : overallScore >= 40
-      ? `This project scores ${overallScore}/100. Multiple issues across ${new Set(allIssues.map(i => i.category)).size} categories need attention before deployment.`
-      : `This project scores ${overallScore}/100. Significant gaps in security, testing, and error handling. Likely vibe-coded — needs substantial hardening before production.`,
-    issues: allIssues,
-    lineCount,
-    verdict: overallScore >= 70 ? "SHIP-READY" : overallScore >= 40 ? "NEEDS WORK" : "NOT SAFE TO SHIP",
-    verdictColor: overallScore >= 70 ? "#22c55e" : overallScore >= 40 ? "#f59e0b" : "#ef4444",
-  }
-}
-
+// eslint-disable-next-line no-unused-vars -- Icon is used below in JSX; false positive on this destructure-rename pattern
 function ScoreBar({ label, score, color, icon: Icon }) {
   return (
     <div style={{ marginBottom: 16 }}>
@@ -234,6 +163,7 @@ export default function Audit() {
   const [code, setCode] = useState("")
   const [loading, setLoading] = useState(false)
   const [result, setResult] = useState(null)
+  const [error, setError] = useState(null)
   const [suggestions, setSuggestions] = useState([])
   const [exp, setExp] = useState({})
   const [filter, setFilter] = useState("all")
@@ -325,9 +255,16 @@ export default function Audit() {
 
   const runAuditWithCode = async (codeToAudit) => {
     if (!codeToAudit?.trim() || loading) return
-    setLoading(true); setResult(null); setExp({}); setSuggestions([])
-    await new Promise(r => setTimeout(r, 1800 + Math.random() * 1000))
-    const audit = getMockAudit(codeToAudit)
+    setLoading(true); setResult(null); setError(null); setExp({}); setSuggestions([])
+
+    const { content, error: aiError } = await callAI("audit", {
+      projectDescription: "Audit this project for vibe-coding patterns and responsible engineering practices.",
+      files: codeToAudit,
+    })
+    if (aiError) { setError(aiError); setLoading(false); return }
+
+    const audit = normalizeAuditResult(content)
+    audit.lineCount = codeToAudit.split("\n").length
     setResult(audit)
     setSuggestions(getSuggestions("audit", audit))
     if (user) {
@@ -340,25 +277,7 @@ export default function Audit() {
     setLoading(false)
   }
 
-  const runAudit = async () => {
-    if (!code.trim() || loading) return
-    setLoading(true)
-    setResult(null)
-    setExp({})
-    setSuggestions([])
-    await new Promise(r => setTimeout(r, 1800 + Math.random() * 1000))
-    const audit = getMockAudit(code)
-    setResult(audit)
-    setSuggestions(getSuggestions("audit", audit))
-    if (user) {
-      saveScan(user.id, "audit", code.slice(0, 500), audit, extractScore("audit", audit))
-        .then(({ error }) => { if (error) console.error("Failed to save scan:", error.message) })
-    }
-    const ae = {}
-    audit.issues.forEach(i => { if (i.severity === "critical" || i.severity === "high") ae[i.id] = true })
-    setExp(ae)
-    setLoading(false)
-  }
+  const runAudit = () => runAuditWithCode(code)
 
   const filtered = result?.issues.filter(i => filter === "all" || i.category === filter) || []
 
@@ -535,6 +454,17 @@ export default function Audit() {
               ? <><Loader2 size={16} style={{ animation: "spin 1s linear infinite" }} /> Auditing project...</>
               : <><Search size={15} /> Run Vibe-Code Audit</>}
           </button>
+
+          {error && (
+            <div style={{ marginTop: 10, padding: "11px 14px", borderRadius: 9, background: "rgba(239,68,68,0.06)", border: "1px solid rgba(239,68,68,0.15)", display: "flex", gap: 10, alignItems: "flex-start" }}>
+              <AlertTriangle size={14} color="#ef4444" style={{ marginTop: 1, flexShrink: 0 }} />
+              <div>
+                <div style={{ fontSize: 12, fontWeight: 600, color: "#ef4444", marginBottom: 2 }}>Audit failed</div>
+                <div style={{ fontSize: 11, color: "rgba(255,255,255,0.4)", lineHeight: 1.5 }}>{error}</div>
+              </div>
+              <button onClick={() => setError(null)} style={{ marginLeft: "auto", background: "none", border: "none", color: "rgba(255,255,255,0.25)", cursor: "pointer", fontSize: 16, lineHeight: 1 }}>×</button>
+            </div>
+          )}
         </div>
 
         {/* RIGHT — Results */}

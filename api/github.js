@@ -90,6 +90,10 @@ async function githubFetch(path, token) {
     throw new Error("GitHub API access forbidden.")
   }
 
+  if (res.status === 401) {
+    throw new Error("GitHub token is invalid or expired. Check the GITHUB_TOKEN env var.")
+  }
+
   if (res.status === 404) {
     throw new Error("Repository not found or is private.")
   }

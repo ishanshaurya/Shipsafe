@@ -5,6 +5,7 @@ import { getScanHistory } from "../services/supabaseService"
 import { useAuth } from "../hooks/useAuth"
 import { MOCK_SCANS, SCAN_COLORS } from "../data/mockResults"
 import { computeShipReadiness, toolLabel } from "../utils/shipReadiness"
+import ScoreRing from "../components/ScoreRing"
 
 /* ═══════════════════════════════════════════════════════════
    DASHBOARD — ShipSafe Home
@@ -57,24 +58,6 @@ function mapDbScan(row) {
     time: timeAgo(row.created_at),
     color: SCAN_COLORS[row.scan_type] ?? "#38bdf8",
   }
-}
-
-function ScoreRing({ score, size = 110 }) {
-  const w = 9, r = (size - w) / 2, c = 2 * Math.PI * r
-  const off = c - (score / 100) * c
-  const col = score >= 80 ? "#34d399" : score >= 60 ? "#eab308" : score >= 40 ? "#f97316" : "#ef4444"
-  return (
-    <div style={{ position: "relative", width: size, height: size, flexShrink: 0 }}>
-      <svg width={size} height={size} style={{ transform: "rotate(-90deg)" }}>
-        <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="rgba(255,255,255,0.05)" strokeWidth={w} />
-        <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke={col} strokeWidth={w} strokeDasharray={c} strokeDashoffset={off} strokeLinecap="round" style={{ transition: "stroke-dashoffset 1s ease" }} />
-      </svg>
-      <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
-        <span style={{ fontSize: 28, fontWeight: 900, color: col, letterSpacing: "-0.03em" }}>{score}</span>
-        <span style={{ fontSize: 9, color: "rgba(255,255,255,0.25)" }}>/ 100</span>
-      </div>
-    </div>
-  )
 }
 
 export default function Dashboard() {
@@ -211,7 +194,7 @@ export default function Dashboard() {
               <div style={{ display: "flex", gap: 28, alignItems: "flex-start" }}>
                 {/* Left: ring + verdict */}
                 <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 10, flexShrink: 0 }}>
-                  <ScoreRing score={readiness.score} size={110} />
+                  <ScoreRing score={readiness.score} size={110} numberFontSize={28} labelFontSize={9} />
                   <div style={{ fontSize: 13, fontWeight: 800, color: readiness.verdictColor, letterSpacing: "0.1em" }}>
                     {readiness.verdict}
                   </div>
