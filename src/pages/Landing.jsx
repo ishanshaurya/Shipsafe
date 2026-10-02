@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from "react"
 import { Link } from "react-router-dom"
 import { Bug, Search, KeyRound, Rocket, FlaskConical, ArrowRight, Github, Scale, Shield, Zap } from "lucide-react"
 import Logo from "../components/Logo"
+import { GradientShimmer } from "@/components/ui/gradient-shimmer"
 
 const FEATURES = [
   { icon: Bug, title: "AI Code Debugger", desc: "Finds bugs, security holes, and vibe-code smells that linters miss. Credential leak detection built in.", color: "#ef4444", tag: "CODE", path: "/debugger" },
@@ -134,7 +135,18 @@ export default function Landing() {
           }}>
             Don't just ship fast.
             <br />
-            <span style={{ color: "#34d399" }}>Ship safe.</span>
+            <GradientShimmer
+              as="span"
+              gradient="mint"
+              easing="smooth"
+              duration={1.6}
+              spread={2.5}
+              pauseBetween={1200}
+              baseColor="#34d399"
+              style={{ color: "#34d399" }}
+            >
+              Ship safe.
+            </GradientShimmer>
           </h1>
 
           {/* Subtext */}

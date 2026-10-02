@@ -12,6 +12,7 @@ import Regulations from "./pages/Regulations"
 import DeployCheck from "./pages/DeployCheck"
 import StressTest from "./pages/StressTest"
 import Report from "./pages/Report"
+import GradientShimmerDemo from "./pages/GradientShimmerDemo"
 
 function NotFound() {
   return (
@@ -36,6 +37,7 @@ export default function App() {
         <Routes>
           <Route path="/" element={<Landing />} />
           <Route path="/login" element={<Login />} />
+          <Route path="/demo/gradient-shimmer" element={<GradientShimmerDemo />} />
 
           <Route element={<ProtectedRoute />}>
             <Route element={<Layout />}>
