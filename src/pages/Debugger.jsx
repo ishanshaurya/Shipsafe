@@ -1,14 +1,17 @@
 import { useState } from "react"
-import { Link } from "react-router-dom"
-import { Bug, Play, Loader2, AlertTriangle, AlertCircle, Info, CheckCircle, ChevronDown, ChevronRight, Copy, Check, Lock, Code2, Sparkles, Github, Star, FileCode, Zap } from "lucide-react"
+import { Loader2 } from "lucide-react"
 import { callAIStream, extractScore } from "../services/scanService"
 import { saveScan, attachEmbedding } from "../services/supabaseService"
 import { useAuth } from "../hooks/useAuth"
-import { useIsMobile } from "../hooks/useIsMobile"
 import ReportButton from "../components/ReportButton"
 import NextSteps from "../components/NextSteps"
-import ScoreRing from "../components/ScoreRing"
+import RepoImport from "../components/RepoImport"
+import CodePanel, { FixPanel, CodeSnippet } from "../components/CodePanel"
+import Finding, { Detail } from "../components/Finding"
+import VerdictBanner from "../components/VerdictBanner"
+import Notice from "../components/Notice"
 import { getSuggestions } from "../utils/crossToolSuggestions"
+import { scoreVerdict, severityVerdict } from "../utils/verdict"
 
 const LANGS = ["JavaScript","TypeScript","Python","Java","Go","Rust","C++","PHP","Ruby","SQL"]
 
@@ -19,19 +22,10 @@ function mapLanguage(ghLang) {
   const map = { "Kotlin": "Java", "Scala": "Java", "Swift": "JavaScript", "C": "C++", "C#": "JavaScript", "Shell": "JavaScript" }
   return map[ghLang] || "JavaScript"
 }
-const SEV = {
-  critical: { color: "#ef4444", bg: "rgba(239,68,68,0.06)", border: "rgba(239,68,68,0.15)", icon: AlertCircle, label: "CRITICAL" },
-  high:     { color: "#f97316", bg: "rgba(249,115,22,0.06)", border: "rgba(249,115,22,0.15)", icon: AlertTriangle, label: "HIGH" },
-  medium:   { color: "#eab308", bg: "rgba(234,179,8,0.06)",  border: "rgba(234,179,8,0.15)",  icon: Info, label: "MEDIUM" },
-  low:      { color: "#34d399", bg: "rgba(52,211,153,0.06)", border: "rgba(52,211,153,0.15)", icon: CheckCircle, label: "LOW" },
-}
-const CAT = {
-  security:   { icon: Lock,     color: "#f97316", label: "Security" },
-  bug:        { icon: Bug,      color: "#ef4444", label: "Bug" },
-  vibecode:   { icon: Sparkles, color: "#a855f7", label: "Vibe-Code" },
-  style:      { icon: Code2,    color: "#38bdf8", label: "Style" },
-  credential: { icon: Lock,     color: "#ef4444", label: "Credential" },
-}
+const CATEGORY_LABEL = { security: "Security", bug: "Bug", vibecode: "Vibe-code", style: "Style", credential: "Credential" }
+const SEVERITY_ORDER = { critical: 0, high: 1, medium: 2, low: 3 }
+const cap = (w) => w.charAt(0).toUpperCase() + w.slice(1)
+
 const SAMPLE = `const express = require('express');
 const mysql = require('mysql');
 const db = mysql.createConnection({ host:'localhost', user:'root', password:'admin123', database:'myapp' });
@@ -53,47 +47,36 @@ app.post('/api/login', (req, res) => {
   });
 });`
 
-function IssueCard({ issue, open, toggle }) {
-  const s = SEV[issue.severity]||SEV.medium
-  const ct = CAT[issue.category]||CAT.bug
-  const SI=s.icon, CI=ct.icon
+function IssueRow({ issue, open, toggle }) {
+  const category = CATEGORY_LABEL[issue.category] || "Bug"
   return (
-    <div style={{ background:s.bg, border:`1px solid ${s.border}`, borderRadius:10 }}>
-      <div onClick={toggle} style={{ padding:"13px 16px", cursor:"pointer", display:"flex", alignItems:"flex-start", gap:12 }}>
-        <SI size={14} color={s.color} style={{ marginTop:2, flexShrink:0 }}/>
-        <div style={{ flex:1, minWidth:0 }}>
-          <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:4, flexWrap:"wrap" }}>
-            {issue.line && <span style={{ fontSize:10, color:"rgba(255,255,255,0.3)", background:"rgba(255,255,255,0.05)", padding:"1px 6px", borderRadius:4, fontFamily:"monospace" }}>L{issue.line}</span>}
-            <span style={{ fontSize:9, color:ct.color, display:"flex", alignItems:"center", gap:3 }}><CI size={9}/> {ct.label}</span>
-            <span style={{ fontSize:9, fontWeight:700, color:s.color, letterSpacing:"0.08em", marginLeft:"auto" }}>{s.label}</span>
-          </div>
-          <div style={{ fontSize:13, color:"rgba(255,255,255,0.85)", fontWeight:500 }}>{issue.title}</div>
-        </div>
-        {open?<ChevronDown size={13} color="rgba(255,255,255,0.25)"/>:<ChevronRight size={13} color="rgba(255,255,255,0.25)"/>}
-      </div>
-      {open && (
-        <div style={{ padding:"0 16px 14px", borderTop:`1px solid ${s.border}`, paddingTop:12 }}>
-          <p style={{ fontSize:12, color:"rgba(255,255,255,0.4)", lineHeight:1.7, marginBottom:10 }}>{issue.description}</p>
-          {issue.codeSnippet && (
-            <div style={{ background:"rgba(0,0,0,0.4)", border:"1px solid rgba(255,255,255,0.06)", borderRadius:6, padding:"8px 12px", marginBottom:10, fontFamily:"monospace", fontSize:11, color:"#ef4444", lineHeight:1.6 }}>
-              {issue.codeSnippet}
-            </div>
-          )}
-          {issue.fix && (
-            <div style={{ background:"rgba(52,211,153,0.04)", border:"1px solid rgba(52,211,153,0.12)", borderRadius:6, padding:"10px 12px" }}>
-              <div style={{ fontSize:9, fontWeight:700, color:"#34d399", marginBottom:6, letterSpacing:"0.1em" }}>FIX</div>
-              <pre style={{ fontSize:11, color:"rgba(255,255,255,0.5)", lineHeight:1.7, fontFamily:"monospace", whiteSpace:"pre-wrap", wordBreak:"break-word", margin:0 }}>{issue.fix}</pre>
-            </div>
-          )}
-        </div>
-      )}
-    </div>
+    <Finding
+      verdict={severityVerdict(issue.severity)}
+      title={issue.title}
+      meta={issue.line ? `${category}, line ${issue.line}` : category}
+      side={cap(issue.severity || "medium")}
+      open={open}
+      onToggle={toggle}
+    >
+      <p>{issue.description}</p>
+      {issue.codeSnippet && <Detail label="Code"><CodeSnippet text={issue.codeSnippet} /></Detail>}
+      {issue.fix && <FixPanel text={issue.fix} />}
+    </Finding>
   )
 }
 
+function timeAgo(ts) {
+  const m = Math.floor((Date.now() - new Date(ts).getTime()) / 60000)
+  if (m < 1) return "just now"
+  if (m < 60) return `${m}m ago`
+  const h = Math.floor(m / 60)
+  return h < 24 ? `${h}h ago` : `${Math.floor(h / 24)}d ago`
+}
+
+const SCAN_NAME = { debugger: "AI Debugger", audit: "Vibe-Code Audit", loopholes: "Loophole Finder" }
+
 export default function Debugger() {
   const { user } = useAuth()
-  const isMobile = useIsMobile()
   const [code, setCode] = useState("")
   const [lang, setLang] = useState("JavaScript")
   const [ctx, setCtx] = useState("")
@@ -102,7 +85,6 @@ export default function Debugger() {
   const [suggestions, setSuggestions] = useState([])
   const [error, setError] = useState(null)
   const [exp, setExp] = useState({})
-  const [copied, setCopied] = useState(false)
   const [githubUrl, setGithubUrl] = useState("")
   const [githubLoading, setGithubLoading] = useState(false)
   const [githubInfo, setGithubInfo] = useState(null)
@@ -184,15 +166,6 @@ export default function Debugger() {
     }
   }
 
-  const formatSize = (bytes) => {
-    if (bytes < 1024) return `${bytes} B`
-    return `${(bytes / 1024).toFixed(1)} KB`
-  }
-
-  const totalSelectedSize = fileList
-    ? fileList.filter(f => selectedFiles.includes(f.path)).reduce((s, f) => s + f.size, 0)
-    : 0
-
   const runScan = async () => {
     if (!code.trim()||loading) return
     setLoading(true); setResult(null); setError(null); setExp({}); setSuggestions([]); setSimilarScans([]); setStreamingText("")
@@ -247,262 +220,144 @@ export default function Debugger() {
     } finally { setLoading(false) }
   }
 
+
+  const sorted = result ? [...result.issues].sort((a, b) => (SEVERITY_ORDER[a.severity] ?? 4) - (SEVERITY_ORDER[b.severity] ?? 4)) : []
+  const allOpen = result ? result.issues.every(i => exp[i.id]) : false
+  const counts = result
+    ? ["critical", "high", "medium", "low"].filter(k => result.stats?.[k]).map(k => `${result.stats[k]} ${k}`).join(", ")
+    : ""
+
   return (
-    <div style={{ fontFamily:"'Inter',system-ui,sans-serif" }}>
-      <style>{`@keyframes spin{to{transform:rotate(360deg)}}@keyframes streamPulse{0%,100%{opacity:0.4}50%{opacity:1}}`}</style>
+    <div>
+      <header className="page-head">
+        <h1>AI Debugger</h1>
+        <p>Find bugs, security holes, credential leaks and vibe-code smells in pasted code or a GitHub repo.</p>
+      </header>
 
-      {/* Header */}
-      <div style={{ marginBottom:28 }}>
-        <div style={{ display:"flex", alignItems:"center", gap:12, marginBottom:6 }}>
-          <div style={{ width:36, height:36, borderRadius:10, background:"rgba(239,68,68,0.08)", border:"1px solid rgba(239,68,68,0.15)", display:"flex", alignItems:"center", justifyContent:"center" }}>
-            <Bug size={17} color="#ef4444"/>
+      <div className="tool-grid">
+
+        {/* Input */}
+        <div className="stack" style={{ gap: 20 }}>
+          <RepoImport
+            url={githubUrl}
+            onUrl={(v) => { setGithubUrl(v); setGithubError(null); setFileList(null) }}
+            onChoose={fetchFileList}
+            onQuick={fetchFromGitHub}
+            quickLabel="Import recommended files without choosing"
+            scanLabel="Import selected files"
+            loading={githubLoading}
+            fileList={fileList}
+            selected={selectedFiles}
+            onSelected={setSelectedFiles}
+            repo={filePickRepo}
+            onScan={fetchSelectedFiles}
+            onCancel={() => setFileList(null)}
+            error={githubError}
+            onDismissError={() => setGithubError(null)}
+            info={githubInfo}
+          />
+
+          <div className="field-row" style={{ alignItems: "flex-end" }}>
+            <div style={{ flex: "0 0 150px" }}>
+              <label className="label" htmlFor="dbg-lang">Language</label>
+              <select id="dbg-lang" className="field" value={lang} onChange={e => setLang(e.target.value)}>
+                {LANGS.map(l => <option key={l} value={l}>{l}</option>)}
+              </select>
+            </div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <label className="label" htmlFor="dbg-ctx">Context (optional)</label>
+              <input id="dbg-ctx" className="field" placeholder="What this code does" value={ctx} onChange={e => setCtx(e.target.value)} />
+            </div>
           </div>
-          <div>
-            <h1 style={{ fontSize:20, fontWeight:800, color:"#fff", letterSpacing:"-0.02em" }}>AI Code Debugger</h1>
-            <p style={{ fontSize:11, color:"rgba(255,255,255,0.3)" }}>
-              Bugs · Security holes · Vibe-code smells · Credential leaks
-            </p>
+
+          <CodePanel
+            label="Code"
+            value={code}
+            onChange={setCode}
+            placeholder="Paste your code here"
+            lineNumbers
+            copy
+            right={<span>{lang}</span>}
+          />
+
+          <div className="stack" style={{ gap: 12 }}>
+            <button type="button" className="btn btn-primary btn-block" onClick={runScan} disabled={loading || !code.trim()}>
+              {loading && <Loader2 size={16} className="spin" aria-hidden="true" />}
+              Run review
+            </button>
+            {error && <Notice tone="error" title="Review failed" onDismiss={() => setError(null)}>{error} Your code is still here. Run the review again.</Notice>}
           </div>
         </div>
-      </div>
 
-      <div style={{ display:"grid", gridTemplateColumns: isMobile?"1fr":"1fr 1fr", gap:16, alignItems:"start" }}>
-
-        {/* LEFT — Input */}
-        <div>
-          {/* GitHub fetch — two-step file picker */}
-          <div style={{ marginBottom:10 }}>
-            {/* URL input row */}
-            <div style={{ display:"flex", gap:6, alignItems:"center", marginBottom: fileList ? 8 : 0 }}>
-              <div style={{ display:"flex", alignItems:"center", flex:1, background:"#0a0a0a", border:"1px solid rgba(255,255,255,0.08)", borderRadius:7, overflow:"hidden" }}>
-                <div style={{ padding:"0 10px", borderRight:"1px solid rgba(255,255,255,0.06)", display:"flex", alignItems:"center" }}>
-                  <Github size={13} color="rgba(255,255,255,0.25)"/>
-                </div>
-                <input
-                  value={githubUrl}
-                  onChange={e => { setGithubUrl(e.target.value); setGithubError(null); setFileList(null) }}
-                  onKeyDown={e => e.key === "Enter" && fetchFileList()}
-                  placeholder="Paste GitHub repo URL…"
-                  style={{ flex:1, background:"transparent", border:"none", outline:"none", color:"rgba(255,255,255,0.7)", fontSize:12, padding:"8px 10px", fontFamily:"inherit" }}
-                />
-              </div>
-              {/* Fetch Files — step 1 */}
-              <button
-                onClick={fetchFileList}
-                disabled={githubLoading || !githubUrl.trim()}
-                style={{ background: githubLoading || !githubUrl.trim() ? "rgba(255,255,255,0.04)" : "rgba(52,211,153,0.08)", border:`1px solid ${githubLoading || !githubUrl.trim() ? "rgba(255,255,255,0.08)" : "rgba(52,211,153,0.2)"}`, borderRadius:7, color: githubLoading || !githubUrl.trim() ? "rgba(255,255,255,0.2)" : "#34d399", fontSize:12, padding:"8px 12px", cursor: githubLoading || !githubUrl.trim() ? "not-allowed" : "pointer", whiteSpace:"nowrap", display:"flex", alignItems:"center", gap:5, fontFamily:"inherit" }}>
-                {githubLoading && !fileList ? <><Loader2 size={11} style={{ animation:"spin 1s linear infinite" }}/> Loading…</> : <><FileCode size={11}/> Fetch Files</>}
-              </button>
-              {/* Quick Scan — old one-step flow */}
-              <button
-                onClick={fetchFromGitHub}
-                disabled={githubLoading || !githubUrl.trim()}
-                title="Auto-select & scan in one step"
-                style={{ background:"rgba(255,255,255,0.04)", border:"1px solid rgba(255,255,255,0.08)", borderRadius:7, color: githubLoading || !githubUrl.trim() ? "rgba(255,255,255,0.2)" : "rgba(255,255,255,0.5)", fontSize:12, padding:"8px 12px", cursor: githubLoading || !githubUrl.trim() ? "not-allowed" : "pointer", whiteSpace:"nowrap", display:"flex", alignItems:"center", gap:5, fontFamily:"inherit" }}>
-                <Zap size={11}/> Quick
-              </button>
-            </div>
-
-            {/* File picker panel — step 2 */}
-            {fileList && (
-              <div style={{ background:"#0a0a0a", border:"1px solid rgba(255,255,255,0.1)", borderRadius:10, overflow:"hidden" }}>
-                {/* Picker header */}
-                <div style={{ padding:"10px 14px", borderBottom:"1px solid rgba(255,255,255,0.06)", display:"flex", alignItems:"center", gap:10 }}>
-                  <Github size={12} color="rgba(255,255,255,0.3)"/>
-                  <span style={{ fontSize:12, color:"rgba(255,255,255,0.6)", flex:1, fontWeight:500 }}>
-                    {filePickRepo?.name} <span style={{ color:"rgba(255,255,255,0.25)", fontWeight:400 }}>— {fileList.length} files found</span>
-                  </span>
-                  <button
-                    onClick={() => setSelectedFiles(fileList.filter(f => f.autoSelected).map(f => f.path))}
-                    style={{ background:"rgba(52,211,153,0.06)", border:"1px solid rgba(52,211,153,0.15)", borderRadius:5, color:"#34d399", fontSize:10, padding:"3px 9px", cursor:"pointer", fontFamily:"inherit", whiteSpace:"nowrap" }}>
-                    Auto-select recommended
-                  </button>
-                  <button
-                    onClick={() => selectedFiles.length === fileList.length ? setSelectedFiles([]) : setSelectedFiles(fileList.map(f => f.path))}
-                    style={{ background:"rgba(255,255,255,0.04)", border:"1px solid rgba(255,255,255,0.08)", borderRadius:5, color:"rgba(255,255,255,0.4)", fontSize:10, padding:"3px 9px", cursor:"pointer", fontFamily:"inherit", whiteSpace:"nowrap" }}>
-                    {selectedFiles.length === fileList.length ? "Deselect All" : "Select All"}
-                  </button>
-                </div>
-
-                {/* File list */}
-                <div style={{ maxHeight:220, overflowY:"auto" }}>
-                  {fileList.map(f => {
-                    const checked = selectedFiles.includes(f.path)
-                    return (
-                      <label key={f.path} style={{ display:"flex", alignItems:"center", gap:10, padding:"7px 14px", cursor:"pointer", borderBottom:"1px solid rgba(255,255,255,0.03)", background: checked ? "rgba(52,211,153,0.03)" : "transparent", minWidth:0 }}>
-                        <input
-                          type="checkbox"
-                          checked={checked}
-                          onChange={() => setSelectedFiles(p => checked ? p.filter(x => x !== f.path) : [...p, f.path])}
-                          style={{ accentColor:"#34d399", width:13, height:13, flexShrink:0 }}
-                        />
-                        <FileCode size={11} color={checked ? "#34d399" : "rgba(255,255,255,0.2)"} style={{ flexShrink:0 }}/>
-                        <span style={{ flex:1, minWidth:0, fontFamily:"monospace", fontSize:11, color: checked ? "rgba(255,255,255,0.75)" : "rgba(255,255,255,0.35)", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
-                          {f.path}
-                        </span>
-                        {f.autoSelected && <span style={{ fontSize:9, color:"rgba(52,211,153,0.6)", background:"rgba(52,211,153,0.06)", padding:"1px 5px", borderRadius:3, flexShrink:0 }}>rec</span>}
-                        <span style={{ fontSize:10, color:"rgba(255,255,255,0.2)", flexShrink:0, fontFamily:"monospace" }}>{formatSize(f.size)}</span>
-                      </label>
-                    )
-                  })}
-                </div>
-
-                {/* Picker footer */}
-                <div style={{ padding:"10px 14px", borderTop:"1px solid rgba(255,255,255,0.06)", display:"flex", alignItems:"center", gap:10 }}>
-                  <span style={{ fontSize:11, color:"rgba(255,255,255,0.3)", flex:1 }}>
-                    Selected: <span style={{ color:"rgba(255,255,255,0.6)", fontWeight:600 }}>{selectedFiles.length} files</span>
-                    {totalSelectedSize > 0 && <span style={{ color:"rgba(255,255,255,0.25)" }}> ({formatSize(totalSelectedSize)})</span>}
-                  </span>
-                  <button
-                    onClick={() => setFileList(null)}
-                    style={{ background:"transparent", border:"none", color:"rgba(255,255,255,0.25)", fontSize:12, cursor:"pointer", fontFamily:"inherit" }}>
-                    Cancel
-                  </button>
-                  <button
-                    onClick={fetchSelectedFiles}
-                    disabled={!selectedFiles.length || githubLoading}
-                    style={{ background: !selectedFiles.length || githubLoading ? "rgba(255,255,255,0.04)" : "#34d399", border:"none", borderRadius:7, color: !selectedFiles.length || githubLoading ? "rgba(255,255,255,0.2)" : "#000", fontSize:12, fontWeight:700, padding:"7px 16px", cursor: !selectedFiles.length || githubLoading ? "not-allowed" : "pointer", display:"flex", alignItems:"center", gap:5, fontFamily:"inherit" }}>
-                    {githubLoading ? <><Loader2 size={11} style={{ animation:"spin 1s linear infinite" }}/> Fetching…</> : "Scan Selected Files →"}
-                  </button>
-                </div>
-              </div>
-            )}
-
-            {githubError && (
-              <div style={{ marginTop:6, padding:"8px 12px", borderRadius:7, background:"rgba(239,68,68,0.06)", border:"1px solid rgba(239,68,68,0.15)", display:"flex", alignItems:"center", gap:8, justifyContent:"space-between" }}>
-                <span style={{ fontSize:11, color:"#ef4444" }}>{githubError}</span>
-                <button onClick={() => setGithubError(null)} style={{ background:"none", border:"none", color:"rgba(255,255,255,0.25)", cursor:"pointer", fontSize:14, lineHeight:1 }}>×</button>
-              </div>
-            )}
-            {githubInfo && !fileList && (
-              <div style={{ marginTop:6, padding:"8px 12px", borderRadius:7, background:"rgba(255,255,255,0.03)", border:"1px solid rgba(255,255,255,0.07)", display:"flex", alignItems:"center", gap:8 }}>
-                <Github size={11} color="rgba(255,255,255,0.3)"/>
-                <span style={{ fontSize:11, color:"rgba(255,255,255,0.5)", flex:1 }}>Fetched {githubInfo.fileCount} files ({githubInfo.totalLines} lines) from <span style={{ color:"rgba(255,255,255,0.7)" }}>{githubInfo.repo.name}</span></span>
-                <span style={{ fontSize:11, color:"rgba(255,255,255,0.3)", display:"flex", alignItems:"center", gap:3 }}><Star size={10} color="#eab308" fill="#eab308"/> {githubInfo.repo.stars.toLocaleString()}</span>
-              </div>
-            )}
-          </div>
-
-          <div style={{ display:"flex", gap:8, alignItems:"center", marginBottom:10 }}>
-            <select value={lang} onChange={e=>setLang(e.target.value)} style={{ background:"#0a0a0a", border:"1px solid rgba(255,255,255,0.08)", borderRadius:7, color:"rgba(255,255,255,0.6)", fontSize:12, padding:"7px 10px", outline:"none", fontFamily:"inherit" }}>
-              {LANGS.map(l=><option key={l} value={l}>{l}</option>)}
-            </select>
-            <input placeholder="Context (optional)" value={ctx} onChange={e=>setCtx(e.target.value)} style={{ flex:1, background:"#0a0a0a", border:"1px solid rgba(255,255,255,0.08)", borderRadius:7, color:"rgba(255,255,255,0.7)", fontSize:12, padding:"7px 10px", outline:"none", fontFamily:"inherit" }}/>
-            <button onClick={()=>{ setCode(SAMPLE); setLang("JavaScript"); setCtx("Express.js REST API"); setResult(null); setError(null) }} style={{ background:"transparent", border:"1px solid rgba(255,255,255,0.08)", borderRadius:7, color:"rgba(255,255,255,0.35)", fontSize:11, padding:"7px 12px", cursor:"pointer", whiteSpace:"nowrap", fontFamily:"inherit" }}>Sample</button>
-          </div>
-
-          {/* Code editor */}
-          <div style={{ background:"#0a0a0a", border:"1px solid rgba(255,255,255,0.08)", borderRadius:12, overflow:"hidden" }}>
-            <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", padding:"10px 14px", borderBottom:"1px solid rgba(255,255,255,0.05)" }}>
-              <div style={{ display:"flex", gap:5 }}>
-                {["#ef4444","#eab308","#34d399"].map((c,i)=><div key={i} style={{ width:9, height:9, borderRadius:"50%", background:c, opacity:0.6 }}/>)}
-              </div>
-              <span style={{ fontSize:10, color:"rgba(255,255,255,0.2)", fontFamily:"monospace" }}>{lang.toLowerCase()}</span>
-              <button onClick={()=>{ navigator.clipboard.writeText(code); setCopied(true); setTimeout(()=>setCopied(false),2000) }} style={{ background:"none", border:"none", cursor:"pointer", color:copied?"#34d399":"rgba(255,255,255,0.25)", display:"flex", alignItems:"center", gap:4, fontSize:11, fontFamily:"inherit" }}>
-                {copied?<Check size={11}/>:<Copy size={11}/>} {copied?"Copied":"Copy"}
-              </button>
-            </div>
-            <div style={{ display:"flex", minHeight:380, maxHeight:520, overflow:"auto" }}>
-              <div style={{ padding:"14px 0", minWidth:40, textAlign:"right", userSelect:"none", borderRight:"1px solid rgba(255,255,255,0.04)", background:"rgba(0,0,0,0.2)" }}>
-                {Array.from({ length:Math.max(lc,20) },(_,i)=>(
-                  <div key={i} style={{ padding:"0 10px", fontSize:11, lineHeight:"20px", color:"rgba(255,255,255,0.15)", fontFamily:"monospace" }}>{i+1}</div>
-                ))}
-              </div>
-              <textarea value={code} onChange={e=>setCode(e.target.value)} placeholder="Paste your code here..." spellCheck={false} style={{ flex:1, background:"transparent", border:"none", outline:"none", resize:"none", color:"rgba(255,255,255,0.85)", fontFamily:"'JetBrains Mono',monospace", fontSize:12, lineHeight:"20px", padding:14, minHeight:380, width:"100%", whiteSpace:"pre", overflowX:"auto" }}/>
-            </div>
-          </div>
-
-          <button onClick={runScan} disabled={loading||!code.trim()} style={{ width:"100%", marginTop:10, padding:13, borderRadius:9, border:"none", background:loading||!code.trim()?"rgba(255,255,255,0.04)":"#34d399", color:loading||!code.trim()?"rgba(255,255,255,0.2)":"#000", fontSize:14, fontWeight:700, cursor:loading||!code.trim()?"not-allowed":"pointer", display:"flex", alignItems:"center", justifyContent:"center", gap:8, fontFamily:"inherit", transition:"all 0.2s" }}>
-            {loading?<><Loader2 size={15} style={{ animation:"spin 1s linear infinite" }}/> Analyzing...</>:<><Play size={15}/> Run ShipSafe Scan</>}
-          </button>
-
-          {error && (
-            <div style={{ marginTop:10, padding:"11px 14px", borderRadius:9, background:"rgba(239,68,68,0.06)", border:"1px solid rgba(239,68,68,0.15)", display:"flex", gap:10, alignItems:"flex-start" }}>
-              <AlertCircle size={14} color="#ef4444" style={{ marginTop:1, flexShrink:0 }}/>
-              <div>
-                <div style={{ fontSize:12, fontWeight:600, color:"#ef4444", marginBottom:2 }}>Scan failed</div>
-                <div style={{ fontSize:11, color:"rgba(255,255,255,0.4)", lineHeight:1.5 }}>{error}</div>
-              </div>
-              <button onClick={()=>setError(null)} style={{ marginLeft:"auto", background:"none", border:"none", color:"rgba(255,255,255,0.25)", cursor:"pointer", fontSize:16, lineHeight:1 }}>×</button>
-            </div>
-          )}
-
-          {result && (
-            <div style={{ display:"grid", gridTemplateColumns:"repeat(5,1fr)", gap:6, marginTop:10 }}>
-              {[{l:"Total",v:result.stats.totalIssues,c:"rgba(255,255,255,0.5)"},{l:"Critical",v:result.stats.critical,c:"#ef4444"},{l:"High",v:result.stats.high,c:"#f97316"},{l:"Medium",v:result.stats.medium,c:"#eab308"},{l:"Low",v:result.stats.low,c:"#34d399"}].map((s,i)=>(
-                <div key={i} style={{ background:"#0a0a0a", border:"1px solid rgba(255,255,255,0.06)", borderRadius:8, padding:"10px 8px", textAlign:"center" }}>
-                  <div style={{ fontSize:20, fontWeight:900, color:s.c, letterSpacing:"-0.02em" }}>{s.v}</div>
-                  <div style={{ fontSize:9, color:"rgba(255,255,255,0.25)", letterSpacing:"0.06em", marginTop:2 }}>{s.l.toUpperCase()}</div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-
-        {/* RIGHT — Results */}
-        <div>
+        {/* Result */}
+        <div aria-live="polite" aria-busy={loading}>
           {!loading && !result && !error && (
-            <div style={{ background:"#0a0a0a", border:"1px solid rgba(255,255,255,0.06)", borderRadius:14, padding:"60px 32px", textAlign:"center", minHeight:480, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center" }}>
-              <div style={{ width:56, height:56, borderRadius:14, background:"rgba(239,68,68,0.06)", border:"1px solid rgba(239,68,68,0.1)", display:"flex", alignItems:"center", justifyContent:"center", marginBottom:18 }}>
-                <Bug size={24} color="#ef4444"/>
+            <div className="panel empty">
+              <h2 className="h2">Paste code to review</h2>
+              <p>You get a verdict and a list of findings, worst first. Each finding comes with a fix.</p>
+              <div>
+                <button type="button" className="btn btn-secondary" onClick={() => { setCode(SAMPLE); setLang("JavaScript"); setCtx("Express.js REST API"); setResult(null); setError(null) }}>
+                  Load sample code
+                </button>
               </div>
-              <h3 style={{ fontSize:17, fontWeight:700, color:"#fff", marginBottom:8 }}>Paste code to scan</h3>
-              <p style={{ fontSize:13, color:"rgba(255,255,255,0.3)", lineHeight:1.7, maxWidth:300 }}>Finds bugs, security holes, credential leaks, and vibe-code smells. Try the sample code.</p>
             </div>
           )}
 
           {loading && (
-            <div style={{ background:"#0a0a0a", border:"1px solid rgba(255,255,255,0.06)", borderRadius:14, padding:"80px 32px", textAlign:"center", minHeight:480, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center" }}>
-              <Loader2 size={28} color="#34d399" style={{ animation:"spin 1.5s linear infinite", marginBottom:16 }}/>
-              <h3 style={{ fontSize:15, fontWeight:700, color:"#fff", marginBottom:6 }}>Scanning {lc} lines of {lang}</h3>
+            <div className="panel panel-pad stack">
+              <div className="h3">Reviewing {lc} lines of {lang}</div>
               {streamingText ? (
-                <div style={{ width:"100%", maxWidth:420, background:"rgba(52,211,153,0.04)", border:"1px solid rgba(52,211,153,0.1)", borderRadius:8, padding:"10px 14px", textAlign:"left", marginTop:8 }}>
-                  <div style={{ fontSize:9, color:"rgba(52,211,153,0.5)", letterSpacing:"0.1em", marginBottom:6 }}>RECEIVING RESPONSE</div>
-                  <pre style={{ fontSize:10, color:"rgba(255,255,255,0.3)", fontFamily:"monospace", lineHeight:1.6, margin:0, whiteSpace:"pre-wrap", wordBreak:"break-all", maxHeight:160, overflow:"hidden" }}>
-                    {streamingText.slice(-400)}
-                  </pre>
-                  <div style={{ width:"60%", height:1, background:"linear-gradient(90deg,#34d399,transparent)", marginTop:8, animation:"streamPulse 1.5s ease-in-out infinite" }}/>
+                <div className="codepanel codepanel-ro" style={{ maxHeight: 220 }}>
+                  <pre>{streamingText.slice(-400)}</pre>
                 </div>
               ) : (
-                <p style={{ fontSize:12, color:"rgba(255,255,255,0.3)" }}>Connecting to AI...</p>
+                <>
+                  <p className="muted">Connecting to the AI model</p>
+                  <div className="skel" style={{ width: "100%" }} />
+                  <div className="skel" style={{ width: "85%" }} />
+                  <div className="skel" style={{ width: "70%" }} />
+                </>
               )}
             </div>
           )}
 
           {result && (
-            <div style={{ display:"flex", flexDirection:"column", gap:12 }}>
-              {/* Score card */}
-              <div style={{ background:"#0a0a0a", border:"1px solid rgba(255,255,255,0.08)", borderRadius:14, padding:22, display:"flex", gap:20, alignItems:"center" }}>
-                <ScoreRing score={result.healthScore} size={120} strokeWidth={8} numberFontSize={30} labelFontSize={10} />
-                <div style={{ flex:1 }}>
-                  <div style={{ fontSize:9, color:"rgba(255,255,255,0.25)", letterSpacing:"0.12em", marginBottom:6 }}>CODE HEALTH SCORE</div>
-                  <p style={{ fontSize:13, color:"rgba(255,255,255,0.5)", lineHeight:1.7, marginBottom:10 }}>{result.summary}</p>
-                  {result.positives?.map((p,i)=>(
-                    <div key={i} style={{ display:"flex", gap:6, fontSize:11, color:"#34d399", marginTop:4 }}>
-                      <CheckCircle size={11} style={{ marginTop:2, flexShrink:0 }}/> {p}
-                    </div>
-                  ))}
-                </div>
-              </div>
+            <div className="stack" style={{ gap: 24 }}>
+              <VerdictBanner verdict={scoreVerdict(result.healthScore)} score={result.healthScore}>
+                <p>{result.summary}</p>
+                <p className="small muted" style={{ marginTop: 8 }}>
+                  {result.stats?.totalIssues ?? result.issues.length} {(result.stats?.totalIssues ?? result.issues.length) === 1 ? "issue" : "issues"}{counts && `: ${counts}`}
+                </p>
+              </VerdictBanner>
+
+              {result.positives?.length > 0 && (
+                <section>
+                  <h2 className="h3" style={{ marginBottom: 8 }}>What's working</h2>
+                  <ul style={{ paddingLeft: 20 }}>
+                    {result.positives.map((p, i) => <li key={i}>{p}</li>)}
+                  </ul>
+                </section>
+              )}
 
               <ReportButton
                 scanType="debugger"
-                title={`Debugger scan — ${lang} · ${result.stats?.totalIssues??0} issues`}
+                title={`Debugger scan: ${lang}, ${result.stats?.totalIssues ?? 0} issues`}
                 resultData={result}
               />
 
-              <div style={{ display:"flex", justifyContent:"space-between", padding:"0 2px" }}>
-                <span style={{ fontSize:11, color:"rgba(255,255,255,0.25)", letterSpacing:"0.08em" }}>{result.issues.length} ISSUES</span>
-                <button onClick={()=>{ const a=result.issues.every(i=>exp[i.id]); setExp(a?{}:Object.fromEntries(result.issues.map(i=>[i.id,true]))) }} style={{ background:"none", border:"none", cursor:"pointer", fontSize:11, color:"#34d399", fontFamily:"inherit" }}>
-                  {result.issues.every(i=>exp[i.id])?"Collapse all":"Expand all"}
-                </button>
-              </div>
-
-              <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
-                {result.issues.sort((a,b)=>({critical:0,high:1,medium:2,low:3}[a.severity]??4)-({critical:0,high:1,medium:2,low:3}[b.severity]??4)).map(issue=>(
-                  <IssueCard key={issue.id} issue={issue} open={!!exp[issue.id]} toggle={()=>toggle(issue.id)}/>
-                ))}
-              </div>
+              <section>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+                  <h2 className="h2">Findings</h2>
+                  <button type="button" className="link-btn" onClick={() => setExp(allOpen ? {} : Object.fromEntries(result.issues.map(i => [i.id, true])))}>
+                    {allOpen ? "Collapse all" : "Expand all"}
+                  </button>
+                </div>
+                <ul className="ledger">
+                  {sorted.map(issue => (
+                    <IssueRow key={issue.id} issue={issue} open={!!exp[issue.id]} toggle={() => toggle(issue.id)} />
+                  ))}
+                </ul>
+              </section>
             </div>
           )}
         </div>
@@ -511,51 +366,27 @@ export default function Debugger() {
       <NextSteps suggestions={suggestions} />
 
       {similarScans.length > 0 && (
-        <div style={{ marginTop: 32 }}>
-          <div style={{ fontSize: 9, fontWeight: 700, color: "rgba(255,255,255,0.25)", letterSpacing: "0.12em", marginBottom: 12 }}>
-            SIMILAR PAST SCANS
-          </div>
-          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+        <section style={{ marginTop: 48 }}>
+          <h2 className="h2" style={{ marginBottom: 16 }}>Similar to earlier scans</h2>
+          <ul className="ledger">
             {similarScans.map(scan => {
               const simPct = Math.round(scan.similarity * 100)
-              const badge = simPct > 90
-                ? { label: "Very similar", color: "#ef4444" }
-                : simPct > 70
-                  ? { label: "Similar", color: "#f97316" }
-                  : { label: "Related", color: "#eab308" }
-              const ago = (() => {
-                const diff = Date.now() - new Date(scan.created_at).getTime()
-                const m = Math.floor(diff / 60000)
-                if (m < 1) return "just now"
-                if (m < 60) return `${m}m ago`
-                const h = Math.floor(m / 60)
-                if (h < 24) return `${h}h ago`
-                return `${Math.floor(h / 24)}d ago`
-              })()
-              const typeIcon = {
-                debugger: "🐛", audit: "🔍", loopholes: "⚖️", "deploy-check": "🚀", "stress-test": "⚡"
-              }[scan.scan_type] || "🔎"
+              const match = simPct > 90 ? "Very similar" : simPct > 70 ? "Similar" : "Related"
               return (
-                <div key={scan.id} style={{ background: "#0a0a0a", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 10, padding: "12px 14px" }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
-                    <span style={{ fontSize: 13 }}>{typeIcon}</span>
-                    <span style={{ fontSize: 11, color: "rgba(255,255,255,0.4)", flex: 1, textTransform: "capitalize" }}>{scan.scan_type.replace("-", " ")}</span>
-                    <span style={{ fontSize: 9, fontWeight: 700, color: badge.color, background: `${badge.color}18`, border: `1px solid ${badge.color}35`, padding: "2px 7px", borderRadius: 4, letterSpacing: "0.04em" }}>
-                      {simPct}% · {badge.label}
-                    </span>
+                <li key={scan.id}>
+                  <div className="row-static" style={{ gridTemplateColumns: "minmax(0, 1fr) auto" }}>
+                    <div>
+                      <div className="row-title">{SCAN_NAME[scan.scan_type] || scan.scan_type}</div>
+                      <div className="row-meta code-inline" style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{scan.input_snippet || "No snippet saved"}</div>
+                      <div className="row-meta">{scan.score != null && `Score ${scan.score}, `}{timeAgo(scan.created_at)}</div>
+                    </div>
+                    <span className="row-side">{match}, {simPct}%</span>
                   </div>
-                  <div style={{ fontSize: 11, color: "rgba(255,255,255,0.35)", fontFamily: "monospace", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                    {scan.input_snippet || "—"}
-                  </div>
-                  <div style={{ display: "flex", gap: 12, marginTop: 6, fontSize: 10, color: "rgba(255,255,255,0.2)" }}>
-                    {scan.score != null && <span>Score {scan.score}</span>}
-                    <span>{ago}</span>
-                  </div>
-                </div>
+                </li>
               )
             })}
-          </div>
-        </div>
+          </ul>
+        </section>
       )}
     </div>
   )

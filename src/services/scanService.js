@@ -27,7 +27,7 @@ async function authHeader() {
 // sent to or from the client.
 // ─────────────────────────────────────────────
 
-const TOOLS = new Set(["debugger", "audit", "loopholes", "deploy-check", "stress-test", "regulations"])
+const TOOLS = new Set(["debugger", "audit", "loopholes", "regulations"])
 
 // ─────────────────────────────────────────────
 // USER PROMPT BUILDERS
@@ -60,19 +60,6 @@ function buildUserPrompt(tool, payload) {
       if (countries.length) prompt += `Target countries: ${countries.join(", ")}\n`
       if (regulation) prompt += `Specific regulation to analyze: ${regulation}\n`
       return prompt
-    }
-
-    case "deploy-check": {
-      const { setupDescription, platform = "" } = payload
-      let prompt = `Check this deployment setup for production readiness.\n\n`
-      if (platform) prompt += `Platform: ${platform}\n\n`
-      prompt += `Setup:\n${setupDescription}`
-      return prompt
-    }
-
-    case "stress-test": {
-      const { stackDescription } = payload
-      return `Predict bottlenecks and failure points for this architecture under load.\n\nStack:\n${stackDescription}`
     }
 
     default:
@@ -119,18 +106,6 @@ export function validate(tool, parsed) {
       if (!Array.isArray(parsed.upcomingChanges)) parsed.upcomingChanges = []
       break
 
-    case "deploy-check":
-      if (typeof parsed.readinessScore !== "number") throw new Error("Missing readinessScore")
-      if (!Array.isArray(parsed.checks)) throw new Error("Missing checks array")
-      if (!Array.isArray(parsed.criticalBlockers)) parsed.criticalBlockers = []
-      if (!Array.isArray(parsed.platformNotes)) parsed.platformNotes = []
-      break
-
-    case "stress-test":
-      if (!Array.isArray(parsed.tiers)) throw new Error("Missing tiers array")
-      if (!Array.isArray(parsed.weakPoints)) parsed.weakPoints = []
-      if (!Array.isArray(parsed.recommendations)) parsed.recommendations = []
-      break
   }
   return parsed
 }
@@ -146,8 +121,6 @@ export function extractScore(tool, parsed) {
     case "debugger":    return parsed.healthScore    ?? null
     case "audit":       return parsed.overallScore   ?? null
     case "loopholes":   return parsed.riskScore      ?? null
-    case "deploy-check":return parsed.readinessScore ?? null
-    case "stress-test": return null  // no single score — tiers tell the story
     default:            return null
   }
 }
@@ -238,7 +211,7 @@ export async function callAIStream(tool, payload, onChunk) {
  * This function handles everything else: building prompts, fetching,
  * parsing JSON, validating, and returning a clean result.
  *
- * @param {string} tool     - One of: "debugger" | "audit" | "loopholes" | "deploy-check" | "stress-test"
+ * @param {string} tool     - One of: "debugger" | "audit" | "loopholes" | "regulations"
  * @param {object} payload  - Raw input from the page (varies by tool, see buildUserPrompt)
  *
  * @returns {{ content: object|null, error: string|null }}
@@ -341,33 +314,6 @@ export function normalizeAuditResult(parsed) {
     issues,
     verdict: overallScore >= 70 ? "SHIP-READY" : overallScore >= 40 ? "NEEDS WORK" : "NOT SAFE TO SHIP",
     verdictColor: overallScore >= 70 ? "#22c55e" : overallScore >= 40 ? "#f59e0b" : "#ef4444",
-  }
-}
-
-export function normalizeDeployCheckResult(parsed, platform) {
-  const checks = (Array.isArray(parsed.checks) ? parsed.checks : []).map((c, i) => ({
-    id: c.id ?? i + 1,
-    category: c.category || "general",
-    status: ["pass", "warn", "fail", "info"].includes(c.status) ? c.status : "warn",
-    title: c.name || c.title || "Check",
-    description: c.detail || c.description || "",
-    fix: c.fix || null,
-  }))
-  const passed = checks.filter(c => c.status === "pass").length
-  const failed = checks.filter(c => c.status === "fail").length
-  const warned = checks.filter(c => c.status === "warn").length
-  const info = checks.filter(c => c.status === "info").length
-  const score = typeof parsed.readinessScore === "number" ? parsed.readinessScore : 0
-
-  return {
-    score,
-    readinessScore: score, // kept so extractScore("deploy-check", ...) still finds it
-    platform,
-    checks,
-    summary: parsed.summary || "",
-    verdict: score >= 80 ? "READY" : score >= 50 ? "ALMOST" : "NOT READY",
-    verdictColor: score >= 80 ? "#34d399" : score >= 50 ? "#eab308" : "#ef4444",
-    stats: { passed, failed, warned, info },
   }
 }
 

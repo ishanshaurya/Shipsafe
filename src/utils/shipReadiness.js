@@ -4,19 +4,14 @@
 // most recent scan of each tool type. This is the unified verdict
 // that tells a developer: are you ready to ship?
 //
-// Weights reflect how critical each stage is to production readiness:
-//   Code stage (45%):  debugger (25%) + audit (20%)
-//   Legal stage (25%): loopholes (25%) — inverted, high risk = low readiness
-//   Deploy stage (30%): deploy-check (30%)
-//
-// Stress test doesn't produce a single score, so it's excluded from
-// the weighted average but shown as a separate indicator.
+// Weights (normalized by whichever tools have actually been scanned):
+//   Code:  debugger (25%) + audit (20%)
+//   Legal: loopholes (25%) — inverted, high risk = low readiness
 
 const WEIGHTS = {
   debugger: 0.25,
   audit: 0.20,
   loopholes: 0.25,    // NOTE: this score is "risk" — we invert it
-  "deploy-check": 0.30,
 }
 
 // Scan types that contribute to the readiness score
@@ -139,8 +134,6 @@ export function toolLabel(type) {
     debugger: "Code Debugger",
     audit: "Vibe-Code Audit",
     loopholes: "Legal Risk",
-    "deploy-check": "Deploy Readiness",
-    "stress-test": "Stress Test",
   }
   return labels[type] || type
 }

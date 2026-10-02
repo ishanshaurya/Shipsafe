@@ -12,7 +12,6 @@ const {
   validate,
   extractScore,
   normalizeAuditResult,
-  normalizeDeployCheckResult,
   normalizeLoopholesResult,
 } = await import("./scanService.js")
 
@@ -30,7 +29,6 @@ describe("validate", () => {
     expect(() => validate("debugger", { issues: [] })).toThrow(/healthScore/)
     expect(() => validate("audit", { overallScore: 50 })).toThrow(/categories/)
     expect(() => validate("loopholes", { riskScore: 10 })).toThrow(/greyAreas/)
-    expect(() => validate("deploy-check", { readinessScore: 10 })).toThrow(/checks/)
   })
 
   it("defaults optional arrays when the AI omits them", () => {
@@ -45,11 +43,9 @@ describe("extractScore", () => {
     expect(extractScore("debugger", { healthScore: 80 })).toBe(80)
     expect(extractScore("audit", { overallScore: 55 })).toBe(55)
     expect(extractScore("loopholes", { riskScore: 30 })).toBe(30)
-    expect(extractScore("deploy-check", { readinessScore: 90 })).toBe(90)
   })
 
-  it("returns null for stress-test (no single score) and unknown tools", () => {
-    expect(extractScore("stress-test", {})).toBeNull()
+  it("returns null for unknown tools", () => {
     expect(extractScore("nonsense", {})).toBeNull()
   })
 })
@@ -82,30 +78,6 @@ describe("normalizeAuditResult", () => {
       categories: { security: { score: 0 }, quality: { score: 100 }, maintainability: { score: 100 }, aiPatterns: { score: 100 }, deployReady: { score: 100 } },
     })
     expect(result.overallScore).toBe(80)
-  })
-})
-
-describe("normalizeDeployCheckResult", () => {
-  it("maps AI field names onto the UI's expected shape and derives stats", () => {
-    const result = normalizeDeployCheckResult({
-      readinessScore: 55,
-      summary: "x",
-      checks: [
-        { id: 1, category: "security", name: "CORS", status: "fail", detail: "not configured", fix: "configure it" },
-        { id: 2, category: "env", name: "Env vars", status: "pass", detail: "ok" },
-      ],
-    }, "vercel")
-
-    expect(result.score).toBe(55)
-    expect(result.readinessScore).toBe(55) // extractScore("deploy-check", ...) still needs this
-    expect(result.platform).toBe("vercel")
-    expect(result.checks[0]).toMatchObject({ title: "CORS", description: "not configured" })
-    expect(result.stats).toEqual({ passed: 1, failed: 1, warned: 0, info: 0 })
-  })
-
-  it("falls back to a safe status when the AI returns something unexpected", () => {
-    const result = normalizeDeployCheckResult({ readinessScore: 10, checks: [{ status: "yikes" }] }, "aws")
-    expect(result.checks[0].status).toBe("warn")
   })
 })
 

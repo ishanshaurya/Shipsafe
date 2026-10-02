@@ -9,23 +9,20 @@ import Debugger from "./pages/Debugger"
 import Loopholes from "./pages/Loopholes"
 import Audit from "./pages/Audit"
 import Regulations from "./pages/Regulations"
-import DeployCheck from "./pages/DeployCheck"
-import StressTest from "./pages/StressTest"
 import Report from "./pages/Report"
 
 function NotFound() {
   return (
-    <div style={{
-      minHeight: "100vh", background: "#000",
-      display: "flex", flexDirection: "column",
-      alignItems: "center", justifyContent: "center",
-      fontFamily: "'Inter', system-ui, sans-serif", gap: 20,
+    <main style={{
+      minHeight: "100vh", background: "var(--color-paper)", color: "var(--color-ink)",
+      padding: "96px 32px", maxWidth: 640, margin: "0 auto",
+      ["--focus-ring"]: "var(--color-signal-blue)",
     }}>
-      <div style={{ fontSize: 80, fontWeight: 900, color: "rgba(255,255,255,0.06)", letterSpacing: "-0.05em", lineHeight: 1 }}>404</div>
-      <div style={{ fontSize: 20, fontWeight: 700, color: "#f1f5f9", letterSpacing: "-0.02em" }}>Page not found</div>
-      <div style={{ fontSize: 13, color: "rgba(255,255,255,0.3)" }}>This page doesn't exist or has moved.</div>
-      <a href="/" style={{ marginTop: 8, display: "inline-flex", alignItems: "center", gap: 6, background: "rgba(52,211,153,0.1)", border: "1px solid rgba(52,211,153,0.25)", color: "#34d399", borderRadius: 8, padding: "9px 18px", fontSize: 13, fontWeight: 600, textDecoration: "none" }}>← Back to ShipSafe</a>
-    </div>
+      <h1 style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 40, lineHeight: 1.05, marginBottom: 16 }}>Page not found</h1>
+      <p style={{ color: "var(--color-muted)", fontSize: 16 }}>
+        This address doesn't match a page. <a href="/" style={{ color: "var(--color-signal-blue)", fontWeight: 600 }}>Go to ShipSafe</a>.
+      </p>
+    </main>
   )
 }
 
@@ -44,8 +41,6 @@ export default function App() {
               <Route path="/audit" element={<Audit />} />
               <Route path="/regulations" element={<Regulations />} />
               <Route path="/loopholes" element={<Loopholes />} />
-              <Route path="/deploy-check" element={<DeployCheck />} />
-              <Route path="/stress-test" element={<StressTest />} />
             </Route>
           </Route>
 

@@ -1,34 +1,23 @@
 import { useState, useEffect } from "react"
 import { Link } from "react-router-dom"
-import { LayoutDashboard, Bug, Search, Scale, KeyRound, Rocket, FlaskConical, Clock, Shield, Zap, TrendingUp, Activity } from "lucide-react"
+import { ChevronRight } from "lucide-react"
 import { getScanHistory } from "../services/supabaseService"
 import { useAuth } from "../hooks/useAuth"
-import { MOCK_SCANS, SCAN_COLORS } from "../data/mockResults"
-import { computeShipReadiness, toolLabel } from "../utils/shipReadiness"
-import ScoreRing from "../components/ScoreRing"
+import { MOCK_SCANS } from "../data/mockResults"
+import { computeShipReadiness } from "../utils/shipReadiness"
+import { scanVerdict, scoreVerdict, VERDICT_WORD } from "../utils/verdict"
+import { TOOL_GROUPS } from "../utils/toolRegistry"
+import Flag from "../components/Flag"
+import Notice from "../components/Notice"
 
 /* ═══════════════════════════════════════════════════════════
-   DASHBOARD — ShipSafe Home
-
-   Shows: quick stats, recent scan history, quick action cards,
-   and a pipeline overview. When logged in, fetches real scan
-   history from Supabase. Falls back to MOCK_SCANS when not.
+   DASHBOARD — ship-readiness, per-tool scores, recent scans.
+   Fetches real scan history from Supabase; falls back to
+   MOCK_SCANS only while no history has loaded.
    ═══════════════════════════════════════════════════════════ */
 
-const TOOLS = [
-  { name: "AI Debugger", desc: "Scan code for bugs & vibe-code smells", icon: Bug, color: "#ef4444", path: "/debugger" },
-  { name: "Loophole Finder", desc: "Find regulatory grey areas", icon: KeyRound, color: "#a855f7", path: "/loopholes" },
-  { name: "Vibe-Code Audit", desc: "Full project health report", icon: Search, color: "#f97316", path: "/audit" },
-  { name: "Regulations", desc: "Browse 14+ global AI laws", icon: Scale, color: "#0ea5e9", path: "/regulations" },
-  { name: "Deploy Check", desc: "Validate deployment config", icon: Rocket, color: "#22c55e", path: "/deploy-check" },
-  { name: "Stress Test", desc: "Simulate concurrent users", icon: FlaskConical, color: "#eab308", path: "/stress-test" },
-]
-
-const PIPELINE_STEPS = [
-  { num: "01", label: "CODE", question: "Is my code safe?", color: "#0ea5e9", tools: ["Debugger", "Audit"] },
-  { num: "02", label: "LEGAL", question: "Is my project legal?", color: "#f59e0b", tools: ["Regulations", "Loopholes"] },
-  { num: "03", label: "DEPLOY", question: "Am I ready to ship?", color: "#22c55e", tools: ["Deploy Check", "Stress Test"] },
-]
+const SCAN_NAME = { debugger: "AI Debugger", audit: "Vibe-Code Audit", loopholes: "Loophole Finder" }
+const TOOL_PATH = { debugger: "/debugger", audit: "/audit", loopholes: "/loopholes" }
 
 function timeAgo(ts) {
   const diff = Math.floor((Date.now() - new Date(ts)) / 1000)
@@ -43,8 +32,6 @@ function issueCount(result, scanType) {
   if (scanType === "debugger") return result.stats?.totalIssues ?? 0
   if (scanType === "audit") return result.issues?.length ?? 0
   if (scanType === "loopholes") return result.greyAreas?.length ?? 0
-  if (scanType === "deploy-check") return result.checks?.filter(c => c.status === "fail" || c.status === "warn").length ?? 0
-  if (scanType === "stress-test") return result.tiers?.filter(t => t.status === "red").length ?? 0
   return 0
 }
 
@@ -56,8 +43,12 @@ function mapDbScan(row) {
     score: row.score,
     issues: issueCount(row.result, row.scan_type),
     time: timeAgo(row.created_at),
-    color: SCAN_COLORS[row.scan_type] ?? "#38bdf8",
   }
+}
+
+function joinNames(names) {
+  if (names.length <= 1) return names.join("")
+  return `${names.slice(0, -1).join(", ")} and ${names[names.length - 1]}`
 }
 
 export default function Dashboard() {
@@ -66,9 +57,6 @@ export default function Dashboard() {
   const [rawScans, setRawScans] = useState(null)  // unprocessed Supabase rows
   const [loading, setLoading] = useState(false)
   const [fetchError, setFetchError] = useState(null)
-  const [hoveredStat, setHoveredStat] = useState(null)
-  const [hoveredScan, setHoveredScan] = useState(null)
-  const [hoveredPipeline, setHoveredPipeline] = useState(null)
 
   useEffect(() => {
     if (!user) { setScans(null); setRawScans(null); return }
@@ -79,7 +67,7 @@ export default function Dashboard() {
       try {
         const { data, error } = await getScanHistory(user.id)
         if (error) {
-          setFetchError("Couldn't load scan history")
+          setFetchError("Couldn't load your scan history. Reload to try again.")
           setScans([])
           setRawScans([])
         } else {
@@ -88,7 +76,7 @@ export default function Dashboard() {
         }
       } catch (err) {
         console.error("Supabase fetch error:", err)
-        setFetchError("Couldn't connect to database")
+        setFetchError("Couldn't reach the database. Reload to try again.")
         setScans([])
         setRawScans([])
       } finally {
@@ -100,331 +88,124 @@ export default function Dashboard() {
   }, [user])
 
   const displayScans = scans ?? MOCK_SCANS
-  const isReal = !!scans
-
-  // Compute readiness from raw Supabase rows (logged in) or MOCK_SCANS (logged out)
   const readiness = computeShipReadiness(rawScans ?? MOCK_SCANS)
-
-  // Stats derived from whichever dataset is active
-  const totalScans = displayScans.length
-  const issuesFound = displayScans.reduce((sum, s) => sum + (s.issues ?? 0), 0)
-  const scoredScans = displayScans.filter(s => s.score !== null)
-  const avgScore = scoredScans.length
-    ? Math.round(scoredScans.reduce((sum, s) => sum + s.score, 0) / scoredScans.length)
-    : 0
-  const toolsUsed = new Set(displayScans.map(s => s.type)).size
+  const scoredTypes = Object.keys(readiness.breakdown)
 
   return (
-    <div className="animate-fade-in" style={{ fontFamily: "'Outfit', system-ui, sans-serif" }}>
-      <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&display=swap');
-        @keyframes spin { to { transform: rotate(360deg) } }
-        @keyframes fadeUp { from { opacity:0; transform:translateY(24px); } to { opacity:1; transform:translateY(0); } }
-        @keyframes glowPulse { 0%,100% { box-shadow: var(--glow-base); } 50% { box-shadow: var(--glow-strong); } }
-        .db-section-1 { animation: fadeUp 0.5s cubic-bezier(0.16,1,0.3,1) forwards; opacity:0; animation-delay:0.05s; }
-        .db-section-2 { animation: fadeUp 0.5s cubic-bezier(0.16,1,0.3,1) forwards; opacity:0; animation-delay:0.12s; }
-        .db-section-3 { animation: fadeUp 0.5s cubic-bezier(0.16,1,0.3,1) forwards; opacity:0; animation-delay:0.2s; }
-        .db-section-4 { animation: fadeUp 0.5s cubic-bezier(0.16,1,0.3,1) forwards; opacity:0; animation-delay:0.28s; }
-        .db-action-card { transition: all 0.3s ease; }
-        .db-action-card:hover { transform: translateY(-2px); }
-      `}</style>
+    <div>
+      <header className="page-head">
+        <h1>Dashboard</h1>
+        <p>{user ? `Signed in as ${user.email}` : "Your ShipSafe overview."}</p>
+      </header>
 
-      {/* Header */}
-      <div className="db-section-1" style={{ marginBottom: 28 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 6 }}>
-          <div style={{
-            width: 36, height: 36, borderRadius: 10,
-            background: "linear-gradient(135deg, #34d399, #06b6d4)",
-            display: "flex", alignItems: "center", justifyContent: "center",
-          }}>
-            <LayoutDashboard size={18} color="#09090f" />
+      {fetchError && <div style={{ marginBottom: 24 }}><Notice tone="error" title="Dashboard unavailable">{fetchError}</Notice></div>}
+
+      {/* Ship readiness */}
+      <section className="panel" aria-labelledby="readiness-heading" style={{ marginBottom: 48 }}>
+        <div className="panel-head">
+          <h2 id="readiness-heading" className="h3">Ship readiness</h2>
+        </div>
+
+        {loading ? (
+          <div className="panel-pad stack" role="status">
+            <div className="skel" style={{ width: 180, height: 48 }} />
+            <div className="skel" style={{ width: "60%" }} />
+            <span className="sr-only">Loading</span>
           </div>
+        ) : readiness.score === null ? (
+          <div className="panel-pad">
+            <p style={{ marginBottom: 16 }}>No scans yet. Run the AI Debugger on a file to get your first score.</p>
+            <Link to="/debugger" className="btn btn-primary">Run AI Debugger</Link>
+          </div>
+        ) : (
           <div>
-            <h1 style={{ fontSize: 22, fontWeight: 800, color: "#f1f5f9", letterSpacing: "-0.02em" }}>Dashboard</h1>
-            <p style={{ fontSize: 11, color: "rgba(241,245,249,0.35)" }}>
-              {user ? `Welcome back, ${user.email}` : "Welcome back. Here's your ShipSafe overview."}
-            </p>
-          </div>
-        </div>
-      </div>
-
-      {/* ── Ship-Readiness Score ─────────────────────────────── */}
-      {(() => {
-        const glowColor = readiness.score === null ? "#475569"
-          : readiness.score >= 80 ? "#34d399"
-          : readiness.score >= 60 ? "#eab308"
-          : readiness.score >= 40 ? "#f97316"
-          : "#ef4444"
-
-        return (
-          <div className="db-section-2" style={{
-            marginBottom: 20,
-            background: "rgba(241,245,249,0.02)",
-            backdropFilter: "blur(16px)",
-            border: `1px solid ${glowColor}30`,
-            borderRadius: 18,
-            padding: "24px 28px",
-            "--glow-base": `0 0 24px ${glowColor}10, inset 0 1px 0 rgba(255,255,255,0.04)`,
-            "--glow-strong": `0 0 40px ${glowColor}20, inset 0 1px 0 rgba(255,255,255,0.06)`,
-            animation: readiness.score !== null ? "glowPulse 4s ease-in-out infinite, fadeUp 0.5s cubic-bezier(0.16,1,0.3,1) forwards" : "fadeUp 0.5s cubic-bezier(0.16,1,0.3,1) forwards",
-            boxShadow: `0 0 32px ${glowColor}14, inset 0 1px 0 rgba(255,255,255,0.04)`,
-          }}>
-            <div style={{ fontSize: 10, color: "#34d399", letterSpacing: "0.12em", marginBottom: 16, fontWeight: 600 }}>SHIP-READINESS SCORE</div>
-
-            {readiness.score === null ? (
-              /* ── Empty state ── */
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 20 }}>
-                <div>
-                  <div style={{ fontSize: 18, fontWeight: 700, color: "#94a3b8", marginBottom: 6 }}>No scan data yet</div>
-                  <div style={{ fontSize: 13, color: "rgba(241,245,249,0.3)" }}>Run your first scan to get a Ship-Readiness Score.</div>
-                </div>
-                <Link to="/debugger" style={{
-                  background: "rgba(52,211,153,0.1)", border: "1px solid rgba(52,211,153,0.25)",
-                  color: "#34d399", borderRadius: 10, padding: "10px 20px",
-                  fontSize: 13, fontWeight: 600, textDecoration: "none", flexShrink: 0,
-                  transition: "all 0.2s",
-                }}
-                  onMouseEnter={e => { e.currentTarget.style.background = "rgba(52,211,153,0.18)" }}
-                  onMouseLeave={e => { e.currentTarget.style.background = "rgba(52,211,153,0.1)" }}>
-                  Start Scanning →
-                </Link>
-              </div>
-            ) : (
-              /* ── Scored state ── */
-              <div style={{ display: "flex", gap: 28, alignItems: "flex-start" }}>
-                {/* Left: ring + verdict */}
-                <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 10, flexShrink: 0 }}>
-                  <ScoreRing score={readiness.score} size={110} numberFontSize={28} labelFontSize={9} />
-                  <div style={{ fontSize: 13, fontWeight: 800, color: readiness.verdictColor, letterSpacing: "0.1em" }}>
-                    {readiness.verdict}
-                  </div>
-                </div>
-
-                {/* Right: completeness + missing + breakdown */}
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  {/* Completeness bar */}
-                  <div style={{ marginBottom: 14 }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 5 }}>
-                      <span style={{ fontSize: 11, color: "rgba(241,245,249,0.4)" }}>Tool coverage</span>
-                      <span style={{ fontSize: 11, color: "#94a3b8", fontWeight: 600 }}>
-                        {Math.round(readiness.completeness * 4)}/4 tools scanned
-                      </span>
-                    </div>
-                    <div style={{ height: 5, background: "rgba(255,255,255,0.05)", borderRadius: 99, overflow: "hidden" }}>
-                      <div style={{
-                        height: "100%", width: `${readiness.completeness * 100}%`,
-                        background: glowColor, borderRadius: 99,
-                        transition: "width 0.8s ease",
-                      }} />
-                    </div>
-                  </div>
-
-                  {/* Missing tools */}
-                  {readiness.missingTools.length > 0 && (
-                    <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 14 }}>
-                      {readiness.missingTools.map(t => (
-                        <Link key={t} to={`/${t}`} style={{
-                          fontSize: 10, color: "#f59e0b", background: "rgba(245,158,11,0.08)",
-                          border: "1px solid rgba(245,158,11,0.2)", borderRadius: 6,
-                          padding: "3px 9px", textDecoration: "none",
-                        }}>
-                          Run {toolLabel(t)} to improve accuracy
-                        </Link>
-                      ))}
-                    </div>
-                  )}
-
-                  {/* Per-tool breakdown */}
-                  <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
-                    {Object.entries(readiness.breakdown).map(([type, info]) => (
-                      <div key={type}>
-                        <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 3 }}>
-                          <span style={{ fontSize: 11, color: "rgba(241,245,249,0.4)" }}>{toolLabel(type)}</span>
-                          <span style={{ fontSize: 11, color: "#94a3b8", fontWeight: 600 }}>{info.adjusted}</span>
-                        </div>
-                        <div style={{ height: 4, background: "rgba(255,255,255,0.05)", borderRadius: 99, overflow: "hidden" }}>
-                          <div style={{
-                            height: "100%",
-                            width: `${info.adjusted}%`,
-                            background: info.adjusted >= 80 ? "#34d399" : info.adjusted >= 60 ? "#eab308" : info.adjusted >= 40 ? "#f97316" : "#ef4444",
-                            borderRadius: 99,
-                            transition: "width 0.8s ease",
-                          }} />
-                        </div>
+            <div className="panel-pad" style={{ display: "flex", alignItems: "center", gap: 20, flexWrap: "wrap" }}>
+              <Flag verdict={scoreVerdict(readiness.score)} size={48} />
+              <span className="banner-score">{readiness.score}</span>
+              <span className={`banner-word ${scoreVerdict(readiness.score)}`}>{VERDICT_WORD[scoreVerdict(readiness.score)]}</span>
+              <p className="muted" style={{ flexBasis: "100%", maxWidth: "60ch" }}>
+                Based on your latest {joinNames(scoredTypes.map((t) => SCAN_NAME[t]))} {scoredTypes.length === 1 ? "scan" : "scans"}.
+              </p>
+            </div>
+            <ul className="ledger" style={{ borderTop: "1px solid var(--color-rule)" }}>
+              {["debugger", "audit", "loopholes"].map((type) => {
+                const info = readiness.breakdown[type]
+                return (
+                  <li key={type}>
+                    <div className="row-static" style={{ padding: "16px 24px", gridTemplateColumns: info ? "24px minmax(0, 1fr) auto auto" : "minmax(0, 1fr) auto" }}>
+                      {info && <Flag verdict={scoreVerdict(info.adjusted)} size={24} labelled />}
+                      <div>
+                        <div className="row-title">{SCAN_NAME[type]}</div>
+                        {info && <div className="row-meta">{VERDICT_WORD[scoreVerdict(info.adjusted)]}{info.scanDate && `, ${timeAgo(info.scanDate)}`}</div>}
+                        {!info && <div className="row-meta">Not scanned yet</div>}
                       </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
-        )
-      })()}
-
-      {/* Stats row */}
-      <div className="db-section-3" style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12, marginBottom: 20 }}>
-        {[
-          { label: "Total Scans", value: String(totalScans), icon: Activity, color: "#38bdf8" },
-          { label: "Issues Found", value: String(issuesFound), icon: Bug, color: "#ef4444" },
-          { label: "Avg Score", value: scoredScans.length ? String(avgScore) : "—", icon: TrendingUp, color: "#f59e0b" },
-          { label: "Tools Used", value: `${toolsUsed}/6`, icon: Zap, color: "#22c55e" },
-        ].map((stat, i) => (
-          <div
-            key={i}
-            onMouseEnter={() => setHoveredStat(i)}
-            onMouseLeave={() => setHoveredStat(null)}
-            style={{
-              background: "rgba(241,245,249,0.02)",
-              border: "1px solid rgba(241,245,249,0.06)",
-              borderRadius: 14, padding: "20px 18px",
-              display: "flex", alignItems: "center", gap: 14,
-              transition: "all 0.3s",
-              transform: hoveredStat === i ? "translateY(-3px)" : "translateY(0)",
-              boxShadow: hoveredStat === i ? "0 8px 25px rgba(0,0,0,0.2)" : "none",
-            }}>
-            <div style={{ width: 42, height: 42, borderRadius: 10, background: `${stat.color}12`, border: `1px solid ${stat.color}25`, display: "flex", alignItems: "center", justifyContent: "center" }}>
-              <stat.icon size={18} color={stat.color} />
-            </div>
-            <div>
-              <div style={{ fontSize: 24, fontWeight: 800, color: stat.color, letterSpacing: "-0.02em" }}>{stat.value}</div>
-              <div style={{ fontSize: 10, color: "rgba(241,245,249,0.3)", letterSpacing: "0.06em" }}>{stat.label.toUpperCase()}</div>
-            </div>
-          </div>
-        ))}
-      </div>
-
-      <div className="db-section-4" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 20 }}>
-        {/* Quick Actions */}
-        <div style={{ background: "rgba(241,245,249,0.02)", border: "1px solid rgba(241,245,249,0.06)", borderRadius: 14, padding: "20px" }}>
-          <div style={{ fontSize: 11, color: "#34d399", letterSpacing: "0.1em", marginBottom: 14, fontWeight: 600 }}>QUICK ACTIONS</div>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-            {TOOLS.map((tool, i) => (
-              <Link key={i} to={tool.path} className="db-action-card" style={{
-                background: `${tool.color}08`, border: `1px solid ${tool.color}18`,
-                borderRadius: 12, padding: "14px 14px", textDecoration: "none",
-                display: "flex", alignItems: "center", gap: 10,
-              }}
-                onMouseEnter={e => {
-                  e.currentTarget.style.borderColor = `${tool.color}40`
-                  e.currentTarget.style.borderLeft = `3px solid ${tool.color}`
-                  e.currentTarget.style.paddingLeft = "11px"
-                }}
-                onMouseLeave={e => {
-                  e.currentTarget.style.borderColor = `${tool.color}18`
-                  e.currentTarget.style.borderLeft = `1px solid ${tool.color}18`
-                  e.currentTarget.style.paddingLeft = "14px"
-                }}>
-                <tool.icon size={16} color={tool.color} />
-                <div>
-                  <div style={{ fontSize: 12, fontWeight: 600, color: "#e2e8f0" }}>{tool.name}</div>
-                  <div style={{ fontSize: 10, color: "rgba(241,245,249,0.3)" }}>{tool.desc}</div>
-                </div>
-              </Link>
-            ))}
-          </div>
-        </div>
-
-        {/* Recent Scans */}
-        <div style={{ background: "rgba(241,245,249,0.02)", border: "1px solid rgba(241,245,249,0.06)", borderRadius: 14, padding: "20px" }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
-            <span style={{ fontSize: 11, color: "#34d399", letterSpacing: "0.1em", fontWeight: 600 }}>RECENT SCANS</span>
-            <span style={{ fontSize: 10, color: isReal ? "#34d399" : "rgba(241,245,249,0.2)" }}>
-              {isReal ? "Live data" : "Demo data"}
-            </span>
-          </div>
-
-          {fetchError && (
-            <div style={{ background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.2)", borderRadius: 8, padding: "10px 14px", marginBottom: 10, fontSize: 11, color: "#ef4444" }}>
-              {fetchError}
-            </div>
-          )}
-
-          {loading && (
-            <div style={{ textAlign: "center", padding: "40px 0", fontSize: 12, color: "rgba(241,245,249,0.3)" }}>
-              Loading...
-            </div>
-          )}
-
-          {!loading && displayScans.length === 0 && (
-            <div style={{ textAlign: "center", padding: "40px 0", fontSize: 12, color: "rgba(241,245,249,0.3)" }}>
-              No scans yet — run a tool to get started.
-            </div>
-          )}
-
-          {!loading && displayScans.length > 0 && (
-            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-              {displayScans.map((scan) => (
-                <div
-                  key={scan.id}
-                  onMouseEnter={() => setHoveredScan(scan.id)}
-                  onMouseLeave={() => setHoveredScan(null)}
-                  style={{
-                    display: "flex", alignItems: "center", gap: 12,
-                    padding: "10px 12px", borderRadius: 8,
-                    background: hoveredScan === scan.id ? "rgba(241,245,249,0.03)" : "rgba(241,245,249,0.01)",
-                    border: "1px solid rgba(241,245,249,0.05)",
-                    transition: "all 0.2s ease",
-                    transform: hoveredScan === scan.id ? "translateX(4px)" : "translateX(0)",
-                    cursor: "pointer",
-                  }}>
-                  <div style={{ width: 8, height: 8, borderRadius: "50%", background: scan.color, flexShrink: 0 }} />
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 12, color: "#e2e8f0", fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{scan.title}</div>
-                    <div style={{ fontSize: 10, color: "rgba(241,245,249,0.3)" }}>{scan.type} • {scan.issues} issues</div>
-                  </div>
-                  {scan.score !== null && (
-                    <div style={{ fontSize: 14, fontWeight: 700, color: scan.score >= 60 ? "#22c55e" : scan.score >= 40 ? "#f59e0b" : "#ef4444", flexShrink: 0 }}>
-                      {scan.score}
+                      {info && <span className="display" style={{ fontSize: 28 }}>{info.adjusted}</span>}
+                      {!info && <Link to={TOOL_PATH[type]} className="btn btn-secondary btn-sm">Run</Link>}
                     </div>
-                  )}
-                  <div style={{ fontSize: 10, color: "rgba(241,245,249,0.2)", display: "flex", alignItems: "center", gap: 4, flexShrink: 0 }}>
-                    <Clock size={10} /> {scan.time}
+                  </li>
+                )
+              })}
+            </ul>
+          </div>
+        )}
+      </section>
+
+      {/* Recent scans */}
+      <section style={{ marginBottom: 48 }} aria-labelledby="recent-heading">
+        <h2 id="recent-heading" className="h2" style={{ marginBottom: 16 }}>Recent scans</h2>
+
+        {loading && (
+          <div className="stack" role="status">
+            <div className="skel" style={{ width: "100%", height: 24 }} />
+            <div className="skel" style={{ width: "100%", height: 24 }} />
+            <div className="skel" style={{ width: "100%", height: 24 }} />
+            <span className="sr-only">Loading</span>
+          </div>
+        )}
+
+        {!loading && displayScans.length === 0 && (
+          <p className="muted">No scans yet. Run a tool below to get started.</p>
+        )}
+
+        {!loading && displayScans.length > 0 && (
+          <ul className="ledger">
+            {displayScans.map((scan) => (
+              <li key={scan.id}>
+                <div className="row-static" style={{ gridTemplateColumns: scan.score !== null ? "24px minmax(0, 1fr) auto" : "minmax(0, 1fr) auto" }}>
+                  {scan.score !== null && <Flag verdict={scanVerdict(scan.type, scan.score)} size={24} labelled />}
+                  <div>
+                    <div className="row-title" style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{scan.title}</div>
+                    <div className="row-meta">{SCAN_NAME[scan.type] || scan.type}, {scan.issues} {scan.issues === 1 ? "issue" : "issues"}</div>
                   </div>
+                  <span className="row-side">{scan.time}</span>
                 </div>
-              ))}
-            </div>
-          )}
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
 
-          {!isReal && (
-            <div style={{ textAlign: "center", marginTop: 12, fontSize: 11, color: "rgba(241,245,249,0.2)" }}>
-              Sign in to save and track your scan history
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Pipeline overview */}
-      <div className="db-section-4" style={{ background: "rgba(241,245,249,0.02)", border: "1px solid rgba(241,245,249,0.06)", borderRadius: 16, padding: "20px" }}>
-        <div style={{ fontSize: 11, color: "#34d399", letterSpacing: "0.1em", marginBottom: 16, fontWeight: 600 }}>THE SHIPSAFE PIPELINE</div>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12 }}>
-          {PIPELINE_STEPS.map((step, i) => (
-            <div
-              key={i}
-              onMouseEnter={() => setHoveredPipeline(i)}
-              onMouseLeave={() => setHoveredPipeline(null)}
-              style={{
-                background: "rgba(241,245,249,0.02)",
-                border: `1px solid ${hoveredPipeline === i ? step.color + "30" : "rgba(241,245,249,0.06)"}`,
-                borderRadius: 16, padding: "18px 16px", position: "relative",
-                transition: "all 0.3s",
-              }}>
-              <div style={{ fontSize: 10, fontWeight: 700, color: step.color, letterSpacing: "0.12em", marginBottom: 8 }}>
-                STAGE {step.num}
-              </div>
-              <div style={{ fontSize: 18, fontWeight: 800, color: "#f1f5f9", marginBottom: 4, letterSpacing: "-0.02em" }}>{step.label}</div>
-              <div style={{ fontSize: 12, color: "rgba(241,245,249,0.4)", fontStyle: "italic", marginBottom: 10 }}>"{step.question}"</div>
-              <div style={{ display: "flex", gap: 6 }}>
-                {step.tools.map((tool, j) => (
-                  <span key={j} style={{ fontSize: 9, fontWeight: 600, color: step.color, background: `${step.color}15`, padding: "3px 8px", borderRadius: 4 }}>{tool}</span>
+      {/* Run a tool */}
+      <section aria-labelledby="run-heading">
+        <h2 id="run-heading" className="h2" style={{ marginBottom: 16 }}>Run a tool</h2>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 32 }}>
+          {TOOL_GROUPS.map(({ group, tools }) => (
+            <div key={group}>
+              <div className="small muted" style={{ marginBottom: 8 }}>{group}</div>
+              <ul className="ledger">
+                {tools.map((t) => (
+                  <li key={t.id}>
+                    <Link to={t.path} className="row-btn" style={{ gridTemplateColumns: "minmax(0, 1fr) 20px", textDecoration: "none", color: "inherit" }}>
+                      <span className="row-title">{t.name}</span>
+                      <ChevronRight size={16} className="muted" aria-hidden="true" />
+                    </Link>
+                  </li>
                 ))}
-              </div>
-              {i < 2 && (
-                <div style={{ position: "absolute", right: -14, top: "50%", transform: "translateY(-50%)", color: "rgba(241,245,249,0.15)", fontSize: 18 }}>→</div>
-              )}
+              </ul>
             </div>
           ))}
         </div>
-      </div>
+      </section>
     </div>
   )
 }

@@ -4,18 +4,9 @@
 
 *Don't just ship fast. Ship safe.*
 
-ShipSafe is an all-in-one developer toolkit for building, validating, and deploying AI projects responsibly. Every feature answers one of three core questions in a developer's deployment pipeline: **Is my code safe?** → **Is my project legal?** → **Am I ready to ship?**
+ShipSafe is a developer toolkit for building and validating AI projects responsibly. It answers two questions: **Is my code safe?** and **Is my project legal?**
 
 **Live Demo:** [shipsafe-app.vercel.app](https://shipsafe-app.vercel.app)
-
----
-
-## The Pipeline
-
-| Stage 1: CODE | Stage 2: LEGAL | Stage 3: DEPLOY |
-|---|---|---|
-| *"Is my code safe?"* | *"Is my project legal?"* | *"Am I ready to ship?"* |
-| AI Debugger + Vibe-Code Audit | Regulation Tracker + Loophole Finder | Deploy Checker + Stress Tester |
 
 ---
 
@@ -38,16 +29,6 @@ Describe your AI system and select target deployment countries. The AI cross-ref
 
 ### Regulation Explorer
 Topic-driven global regulation explorer. Pick a topic (Privacy, Deepfakes, Bias, etc.) and get AI-surfaced regulations, real-world risks, country coverage, and a developer checklist. Powered by Gemini 2.5 Flash.
-
-### Deploy Readiness Checker
-The final gate before shipping. Describe your deployment setup and the AI checks for common production gotchas: missing env vars, CORS misconfig, no rate limiting, missing security headers, and platform-specific issues for Vercel, Netlify, AWS, Railway, and more.
-
-<!-- ![Deploy Checker Screenshot](screenshots/deploy-check.png) -->
-
-### Stress Tester
-Probe your live endpoints under simulated load. Describe your stack and ShipSafe runs **real HTTP requests** against your URLs, detecting bottlenecks at 10, 100, 1,000, and 10,000 concurrent users — identifying which component breaks first and what the fix is. Includes realistic analysis of free-tier limits (Vercel, Supabase, etc.).
-
-<!-- ![Stress Tester Screenshot](screenshots/stress-test.png) -->
 
 ### Dashboard
 Track all your scans in one place. Shows scan history, scores, issue counts, a unified **Ship-Readiness Score**, and quick actions to every tool. Logged-in users get persistent scan history via Supabase. **Cross-tool suggestions** recommend the next best scan based on your results.
@@ -115,7 +96,7 @@ All serverless routes live under `/api/` and run on Vercel only (not available v
 }
 ```
 
-Allowed `tool` values: `debugger`, `audit`, `loopholes`, `deploy-check`, `stress-test`, `regulations`.
+Allowed `tool` values: `debugger`, `audit`, `loopholes`, `regulations`.
 
 ---
 
@@ -214,8 +195,6 @@ shipsafe/
 │   │   ├── Debugger.jsx       # AI Code Debugger (streaming + GitHub)
 │   │   ├── Audit.jsx          # Vibe-Code Audit (GitHub repo scan)
 │   │   ├── Loopholes.jsx      # Loophole Finder
-│   │   ├── DeployCheck.jsx    # Deploy Readiness Checker
-│   │   ├── StressTest.jsx     # Real endpoint stress testing
 │   │   ├── Regulations.jsx    # Live AI regulation explorer
 │   │   ├── Report.jsx         # Public shareable report viewer
 │   │   ├── Landing.jsx        # Public landing page
@@ -246,7 +225,7 @@ shipsafe/
 
 | Table | Purpose |
 |---|---|
-| `scan_history` | Stores all scan results (debugger, audit, loopholes, deploy-check, stress-test) |
+| `scan_history` | Stores all scan results (debugger, audit, loopholes) |
 | `regulations` | AI regulation data (14 countries) — public read |
 | `reports` | Public shareable scan reports (`/report/:slug`) |
 | `rate_limits` | Per-user, per-time-window request counters backing `/api/gemini`'s rate limit (see `supabase/migrations/0001_rate_limits.sql`) |
@@ -271,8 +250,6 @@ All tables use **Row Level Security (RLS)** — users can only access their own 
 - [x] AI Debugger with real Gemini analysis
 - [x] Vibe-Code Audit with 5-category scoring
 - [x] Loophole Finder with country-specific regulations
-- [x] Deploy Readiness Checker
-- [x] Stress Tester with tier-based predictions
 - [x] Supabase Auth (email + GitHub)
 - [x] Scan history dashboard
 - [x] Public shareable reports (/report/:id)
@@ -280,14 +257,13 @@ All tables use **Row Level Security (RLS)** — users can only access their own 
 - [x] Streaming AI responses on Debugger
 - [x] Ship-Readiness Score on Dashboard
 - [x] Cross-tool suggestions across all pages
-- [x] Real endpoint stress testing
-- [ ] Mobile responsive (partial — tool pages done, Dashboard/Landing pending)
-- [ ] Groq fallback API
 - [x] Rate limiting on AI proxy — persistent, per-authenticated-user, Postgres-backed (replaced the original in-memory-per-IP version)
 - [x] Server-side auth check on `/api/gemini` (previously enforced only client-side)
 - [x] Automated tests (Vitest) + CI (GitHub Actions: lint, test, build)
-- [ ] PDF export for reports
-- [ ] Real regulation data API integration
+
+---
+
+Project docs: [`docs/`](docs/). Planned work and open TODOs: [`docs/planning/`](docs/planning/).
 
 ---
 

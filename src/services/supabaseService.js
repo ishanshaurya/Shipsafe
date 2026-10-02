@@ -25,7 +25,7 @@ import { supabase } from "../lib/supabase"
  * Only runs when a user is logged in (caller should check user first).
  *
  * @param {string} userId        - The logged-in user's UUID (from Supabase Auth)
- * @param {string} scanType      - One of: "debugger" | "audit" | "loopholes" | "deploy-check" | "stress-test"
+ * @param {string} scanType      - One of: "debugger" | "audit" | "loopholes"
  * @param {string} inputSnippet  - First 500 chars of the user's input (code, description, etc.)
  * @param {object} result        - The full parsed AI response object (stored as jsonb)
  * @param {number|null} score    - 0-100 health/readiness score, or null if the tool doesn't produce one
@@ -146,6 +146,11 @@ export async function deleteScan(scanId) {
   }
 }
 
+export function embeddingText(scanType, result) {
+  const issueTitles = (result.issues || []).map(i => i.title).filter(Boolean).join(", ")
+  return `${scanType}: ${result.summary || ""}. Issues: ${issueTitles}`
+}
+
 /**
  * Generate and save an embedding for a scan row. Fire-and-forget — never throws.
  *
@@ -155,8 +160,7 @@ export async function deleteScan(scanId) {
  */
 export async function attachEmbedding(scanId, scanType, result) {
   try {
-    const issueTitles = (result.issues || []).map(i => i.title).filter(Boolean).join(", ")
-    const text = `${scanType}: ${result.summary || ""}. Issues: ${issueTitles}`
+    const text = embeddingText(scanType, result)
 
     const genRes = await fetch("/api/embed", {
       method: "POST",

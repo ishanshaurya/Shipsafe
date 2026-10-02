@@ -1,352 +1,239 @@
-import { useState, useEffect, useRef } from "react"
 import { Link } from "react-router-dom"
-import { Bug, Search, KeyRound, Rocket, FlaskConical, ArrowRight, Github, Scale, Shield, Zap } from "lucide-react"
 import Logo from "../components/Logo"
+import Flag from "../components/Flag"
+import { TOOL_GROUPS } from "../utils/toolRegistry"
 
-const FEATURES = [
-  { icon: Bug, title: "AI Code Debugger", desc: "Finds bugs, security holes, and vibe-code smells that linters miss. Credential leak detection built in.", color: "#ef4444", tag: "CODE", path: "/debugger" },
-  { icon: Search, title: "Vibe-Code Audit", desc: "Full project health report. Security, quality, maintainability, AI-pattern detection — all scored.", color: "#f97316", tag: "CODE", path: "/audit" },
-  { icon: Scale, title: "Regulation Tracker", desc: "Browse 14+ global AI laws. Know exactly which regulations apply to your deployment countries.", color: "#0ea5e9", tag: "LEGAL", path: "/regulations" },
-  { icon: KeyRound, title: "Loophole Finder", desc: "Find legal grey areas before your competitors do. Know where enforcement is unclear.", color: "#a855f7", tag: "LEGAL", path: "/loopholes" },
-  { icon: Rocket, title: "Deploy Checker", desc: "Catches missing env vars, CORS issues, security headers, and platform-specific gotchas.", color: "#34d399", tag: "DEPLOY", path: "/deploy-check" },
-  { icon: FlaskConical, title: "Stress Tester", desc: "Simulate 10 to 10,000 concurrent users. Predicts which component breaks first.", color: "#eab308", tag: "DEPLOY", path: "/stress-test" },
+const GITHUB_URL = "https://github.com/ishanshaurya/shipsafe"
+
+const SAMPLE_FINDINGS = [
+  { verdict: "blocked", title: "Hardcoded API key", file: "server/db.js:12", severity: "Critical" },
+  { verdict: "blocked", title: "No input validation on /api/users", file: "routes/users.js:37", severity: "High" },
+  { verdict: "held", title: "Missing error handling on DB query", file: "routes/users.js:54", severity: "Medium" },
+  { verdict: "cleared", title: "Dependencies pinned", file: "package.json", severity: "Passed" },
+]
+
+const STEPS = [
+  "Paste code, import a repo, or describe your system",
+  "Get a verdict and a list of findings, worst first",
+  "Apply the fix shown with each finding, or share the report link",
 ]
 
 export default function Landing() {
-  const [mouse, setMouse] = useState({ x: 0, y: 0 })
-  const heroRef = useRef(null)
-
-  useEffect(() => {
-    const handleMouse = (e) => {
-      setMouse({
-        x: (e.clientX / window.innerWidth - 0.5) * 2,
-        y: (e.clientY / window.innerHeight - 0.5) * 2,
-      })
-    }
-    window.addEventListener("mousemove", handleMouse)
-    return () => window.removeEventListener("mousemove", handleMouse)
-  }, [])
-
   return (
-    <div style={{ background: "#000", color: "#fff", minHeight: "100vh", fontFamily: "'Inter', system-ui, sans-serif", overflowX: "hidden" }}>
+    <div className="ls-root">
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500&display=swap');
-        * { box-sizing: border-box; margin: 0; padding: 0; }
-        @keyframes fadeUp { from { opacity:0; transform:translateY(40px); } to { opacity:1; transform:translateY(0); } }
-        @keyframes fadeIn { from { opacity:0; } to { opacity:1; } }
-        @keyframes shimmer { 0%{background-position:-200% center} 100%{background-position:200% center} }
-        @keyframes float { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-8px)} }
-        .fu { animation: fadeUp 0.9s cubic-bezier(0.16,1,0.3,1) forwards; opacity:0; }
-        .fu1{animation-delay:0.1s} .fu2{animation-delay:0.2s} .fu3{animation-delay:0.3s} .fu4{animation-delay:0.4s} .fu5{animation-delay:0.6s}
-        .nav-link { color: rgba(255,255,255,0.5); font-size:14px; text-decoration:none; transition:color 0.2s; font-weight:500; }
-        .nav-link:hover { color:#fff; }
-        .feat-card { background:#0a0a0a; border:1px solid rgba(255,255,255,0.06); border-radius:16px; padding:28px; text-decoration:none; display:block; transition:all 0.3s; }
-        .feat-card:hover { border-color:rgba(255,255,255,0.12); transform:translateY(-4px); background:#111; }
-        .cta-btn { display:inline-flex; align-items:center; gap:8px; background:#34d399; color:#000; font-weight:700; font-size:15px; padding:14px 32px; border-radius:10px; text-decoration:none; transition:all 0.2s; }
-        .cta-btn:hover { background:#2fbf8a; transform:translateY(-1px); }
-        .sec-btn { display:inline-flex; align-items:center; gap:8px; background:rgba(255,255,255,0.06); color:rgba(255,255,255,0.7); font-weight:500; font-size:15px; padding:14px 32px; border-radius:10px; text-decoration:none; border:1px solid rgba(255,255,255,0.1); transition:all 0.2s; }
-        .sec-btn:hover { background:rgba(255,255,255,0.1); color:#fff; }
-        .tag-pill { display:inline-block; font-size:10px; font-weight:700; letter-spacing:0.1em; padding:4px 10px; border-radius:20px; }
+        .ls-root {
+          --focus-ring: var(--color-signal-blue);
+          background: var(--color-paper);
+          color: var(--color-ink);
+          font-family: var(--font-sans);
+          line-height: 1.55;
+          min-height: 100vh;
+        }
+        .ls-root a { color: inherit; }
+        .ls-skip { position: absolute; left: 16px; top: -48px; background: var(--color-ink); color: var(--color-code-text) !important; padding: 10px 16px; border-radius: var(--radius-control); z-index: 10; }
+        .ls-skip:focus { top: 12px; }
+
+        .ls-wrap { max-width: 1120px; margin: 0 auto; padding: 0 32px; }
+        .ls-nav { border-bottom: 1px solid var(--color-rule); }
+        .ls-nav .ls-wrap { display: flex; align-items: center; justify-content: space-between; height: 68px; }
+        .ls-brand { display: flex; align-items: center; gap: 10px; text-decoration: none; font-family: var(--font-display); font-weight: 800; font-size: 26px; letter-spacing: 0; }
+        .ls-nav-actions { display: flex; align-items: center; gap: 8px; }
+
+        .ls-btn { display: inline-flex; align-items: center; justify-content: center; min-height: 44px; padding: 0 20px; border-radius: var(--radius-control); font-size: 16px; font-weight: 600; text-decoration: none; border: 1px solid transparent; transition: background var(--dur-fast), border-color var(--dur-fast); }
+        .ls-btn-primary { background: var(--color-signal-blue); color: #fff !important; }
+        .ls-btn-primary:hover { background: #1a50a0; }
+        .ls-btn-secondary { border-color: var(--color-ink); color: var(--color-ink); }
+        .ls-btn-secondary:hover { background: var(--color-surface); }
+        .ls-btn-ghost { color: var(--color-ink); }
+        .ls-btn-ghost:hover { background: var(--color-surface); }
+
+        .ls-display { font-family: var(--font-display); font-weight: 800; letter-spacing: 0; line-height: 1.05; }
+
+        .ls-hero { padding: 80px 0 96px; }
+        .ls-hero .ls-wrap { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 480px); gap: 64px; align-items: start; }
+        .ls-hero h1 { font-size: 64px; max-width: 12em; margin-bottom: 24px; }
+        .ls-lede { font-size: 18px; color: var(--color-muted); max-width: 52ch; margin-bottom: 32px; }
+        .ls-cta-row { display: flex; gap: 12px; flex-wrap: wrap; }
+
+        .ls-panel { background: var(--color-surface); border: 1px solid var(--color-rule); }
+        .ls-panel-head { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 20px 24px; border-bottom: 1px solid var(--color-rule); }
+        .ls-panel-title { font-size: 14px; color: var(--color-muted); }
+        .ls-panel-name { font-size: 16px; font-weight: 600; }
+        .ls-verdict { display: flex; align-items: center; gap: 12px; }
+        .ls-verdict-score { font-size: 48px; }
+        .ls-verdict-word { font-size: 24px; color: var(--color-pennant-red-text); }
+        .ls-finding { display: grid; grid-template-columns: 30px minmax(0, 1fr) auto; gap: 16px; align-items: center; padding: 16px 24px; border-bottom: 1px solid var(--color-rule); }
+        .ls-finding:last-child { border-bottom: 0; }
+        .ls-finding-title { font-weight: 500; }
+        .ls-finding-file { font-family: var(--font-mono); font-size: 13px; color: var(--color-muted); overflow-wrap: anywhere; }
+        .ls-finding-sev { font-size: 14px; color: var(--color-muted); }
+
+        .ls-staff { position: relative; width: 30px; height: 32px; overflow: hidden; border-left: 2px solid var(--color-ink); padding-left: 4px; }
+        .ls-staff svg { display: block; animation: ls-hoist 700ms var(--ease-out) both; animation-delay: var(--delay, 0ms); }
+        @keyframes ls-hoist { from { transform: translateY(110%); } to { transform: translateY(0); } }
+
+        .ls-section { padding: 80px 0; border-top: 1px solid var(--color-rule); }
+        .ls-section h2 { font-size: 40px; margin-bottom: 40px; }
+
+        .ls-ledger { list-style: none; border-top: 1px solid var(--color-rule); }
+        .ls-tool-row { display: grid; grid-template-columns: 200px 240px minmax(0, 1fr); gap: 24px; padding: 24px 0; border-bottom: 1px solid var(--color-rule); text-decoration: none; align-items: baseline; }
+        .ls-tool-group { color: var(--color-muted); font-size: 14px; }
+        .ls-tool-name { font-family: var(--font-display); font-weight: 700; font-size: 28px; line-height: 1.1; }
+        .ls-tool-row:hover .ls-tool-name { text-decoration: underline; text-underline-offset: 4px; text-decoration-thickness: 2px; }
+        .ls-tool-desc { color: var(--color-muted); max-width: 60ch; }
+
+        .ls-steps { list-style: none; border-top: 1px solid var(--color-rule); max-width: 760px; }
+        .ls-step { display: grid; grid-template-columns: 56px minmax(0, 1fr); gap: 16px; padding: 24px 0; border-bottom: 1px solid var(--color-rule); align-items: baseline; }
+        .ls-step-num { font-family: var(--font-display); font-weight: 800; font-size: 40px; line-height: 1; color: var(--color-signal-blue); }
+        .ls-step-text { font-size: 20px; font-weight: 500; max-width: 40ch; }
+
+        .ls-final .ls-wrap { display: flex; align-items: center; justify-content: space-between; gap: 32px; flex-wrap: wrap; }
+        .ls-final h2 { margin-bottom: 12px; }
+        .ls-final p { color: var(--color-muted); max-width: 52ch; }
+
+        .ls-footer { border-top: 1px solid var(--color-rule); padding: 32px 0; font-size: 14px; color: var(--color-muted); }
+        .ls-footer .ls-wrap { display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+        .ls-footer nav { display: flex; gap: 24px; }
+
+        @media (max-width: 1023px) {
+          .ls-hero .ls-wrap { grid-template-columns: minmax(0, 1fr); gap: 48px; }
+          .ls-tool-row { grid-template-columns: 160px minmax(0, 1fr); }
+          .ls-tool-desc { grid-column: 2; }
+        }
+        @media (max-width: 767px) {
+          .ls-wrap { padding: 0 16px; }
+          .ls-hero { padding: 48px 0 64px; }
+          .ls-hero h1 { font-size: 44px; }
+          .ls-section { padding: 56px 0; }
+          .ls-section h2 { font-size: 32px; margin-bottom: 32px; }
+          .ls-panel-head, .ls-finding { padding-left: 16px; padding-right: 16px; }
+          .ls-finding { grid-template-columns: 30px minmax(0, 1fr); }
+          .ls-finding-sev { grid-column: 2; }
+          .ls-tool-row { grid-template-columns: minmax(0, 1fr); gap: 4px; }
+          .ls-tool-desc { grid-column: 1; }
+          .ls-step { grid-template-columns: 40px minmax(0, 1fr); }
+          .ls-step-text { font-size: 18px; }
+        }
+        @media (max-width: 479px) {
+          .ls-brand { font-size: 22px; }
+          .ls-btn-ghost { padding: 0 12px; }
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .ls-staff svg { animation: none; }
+        }
       `}</style>
 
-      {/* ── NAV ── */}
-      <nav style={{
-        position: "fixed", top: 0, left: 0, right: 0, zIndex: 100,
-        borderBottom: "1px solid rgba(255,255,255,0.06)",
-        background: "rgba(0,0,0,0.8)", backdropFilter: "blur(20px)",
-        padding: "0 48px", height: 60,
-        display: "flex", alignItems: "center", justifyContent: "space-between",
-      }}>
-        <Link to="/" style={{ display: "flex", alignItems: "center", gap: 10, textDecoration: "none" }}>
-          <Logo size={28} />
-          <span style={{ fontSize: 17, fontWeight: 800, color: "#fff", letterSpacing: "-0.02em" }}>ShipSafe</span>
-        </Link>
-        <div style={{ display: "flex", alignItems: "center", gap: 36 }}>
-          <a href="#features" className="nav-link">Features</a>
-          <a href="#pipeline" className="nav-link">How it works</a>
-          <a href="https://github.com/ishanshaurya/shipsafe" target="_blank" rel="noreferrer" className="nav-link">GitHub</a>
-          <Link to="/login" className="nav-link">Sign in</Link>
-          <Link to="/dashboard" style={{ background: "#34d399", color: "#000", fontWeight: 700, fontSize: 13, padding: "8px 18px", borderRadius: 8, textDecoration: "none" }}>
-            Dashboard →
+      <a href="#main" className="ls-skip">Skip to content</a>
+
+      <header className="ls-nav">
+        <div className="ls-wrap">
+          <Link to="/" className="ls-brand">
+            <Logo size={30} tone="light" />
+            ShipSafe
           </Link>
+          <nav className="ls-nav-actions" aria-label="Account">
+            <Link to="/login" className="ls-btn ls-btn-ghost">Sign in</Link>
+            <Link to="/dashboard" className="ls-btn ls-btn-primary">Open dashboard</Link>
+          </nav>
         </div>
-      </nav>
+      </header>
 
-      {/* ── HERO ── */}
-      <section ref={heroRef} style={{ position: "relative", minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden", paddingTop: 60 }}>
-
-        {/* Cursor-reactive background orbs */}
-        <div style={{
-          position: "absolute", inset: 0, pointerEvents: "none",
-          transition: "transform 0.1s ease-out",
-        }}>
-          <div style={{
-            position: "absolute",
-            top: "30%", left: "50%",
-            width: 600, height: 600,
-            background: "radial-gradient(circle, rgba(52,211,153,0.07) 0%, transparent 70%)",
-            borderRadius: "50%",
-            transform: `translate(-50%, -50%) translate(${mouse.x * 30}px, ${mouse.y * 20}px)`,
-            transition: "transform 0.3s ease-out",
-          }} />
-          <div style={{
-            position: "absolute",
-            top: "60%", left: "30%",
-            width: 400, height: 400,
-            background: "radial-gradient(circle, rgba(99,102,241,0.05) 0%, transparent 70%)",
-            borderRadius: "50%",
-            transform: `translate(-50%, -50%) translate(${mouse.x * -20}px, ${mouse.y * 15}px)`,
-            transition: "transform 0.4s ease-out",
-          }} />
-        </div>
-
-        {/* Subtle grid */}
-        <div style={{
-          position: "absolute", inset: 0, pointerEvents: "none",
-          backgroundImage: "linear-gradient(rgba(255,255,255,0.02) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.02) 1px, transparent 1px)",
-          backgroundSize: "80px 80px",
-          maskImage: "radial-gradient(ellipse 80% 60% at 50% 50%, black 0%, transparent 100%)",
-        }} />
-
-        <div style={{ textAlign: "center", maxWidth: 900, padding: "0 40px", position: "relative", zIndex: 1 }}>
-
-          {/* Badge */}
-          <div className="fu fu1" style={{ display: "inline-flex", alignItems: "center", gap: 8, background: "rgba(52,211,153,0.08)", border: "1px solid rgba(52,211,153,0.2)", borderRadius: 20, padding: "6px 16px", marginBottom: 40 }}>
-            <div style={{ width: 6, height: 6, borderRadius: "50%", background: "#34d399", animation: "float 2s ease-in-out infinite" }} />
-            <span style={{ fontSize: 12, color: "#34d399", fontWeight: 600, letterSpacing: "0.05em" }}>Now powered by Gemini 2.5 Flash</span>
-          </div>
-
-          {/* Headline */}
-          <h1 className="fu fu2" style={{
-            fontSize: "clamp(52px, 9vw, 96px)",
-            fontWeight: 900,
-            lineHeight: 1.0,
-            letterSpacing: "-0.04em",
-            marginBottom: 32,
-            transform: `translate(${mouse.x * 8}px, ${mouse.y * 4}px)`,
-            transition: "transform 0.2s ease-out",
-          }}>
-            Don't just ship fast.
-            <br />
-            <span style={{ color: "#34d399" }}>Ship safe.</span>
-          </h1>
-
-          {/* Subtext */}
-          <p className="fu fu3" style={{
-            fontSize: "clamp(16px, 2vw, 20px)",
-            color: "rgba(255,255,255,0.45)",
-            lineHeight: 1.7,
-            maxWidth: 580,
-            margin: "0 auto 48px",
-            fontWeight: 400,
-          }}>
-            The all-in-one AI toolkit that scans your code for bugs, checks legal compliance, and validates deployment readiness. Six tools. One pipeline.
-          </p>
-
-          {/* CTAs */}
-          <div className="fu fu4" style={{ display: "flex", gap: 12, justifyContent: "center", flexWrap: "wrap" }}>
-            <Link to="/debugger" className="cta-btn">Start scanning → </Link>
-            <Link to="/dashboard" className="sec-btn"><span>View dashboard</span></Link>
-          </div>
-
-          {/* Trust line */}
-          <div className="fu fu5" style={{ marginTop: 48, display: "flex", gap: 32, justifyContent: "center", flexWrap: "wrap" }}>
-            {["Free tier · no credit card", "API keys never leave the server", "14+ countries covered"].map((t, i) => (
-              <span key={i} style={{ fontSize: 12, color: "rgba(255,255,255,0.25)", display: "flex", alignItems: "center", gap: 6 }}>
-                <span style={{ color: "#34d399" }}>✓</span> {t}
-              </span>
-            ))}
-          </div>
-        </div>
-
-        {/* Scroll indicator */}
-        <div style={{ position: "absolute", bottom: 40, left: "50%", transform: "translateX(-50%)", display: "flex", flexDirection: "column", alignItems: "center", gap: 8, animation: "float 2s ease-in-out infinite" }}>
-          <span style={{ fontSize: 11, color: "rgba(255,255,255,0.2)", letterSpacing: "0.1em" }}>SCROLL</span>
-          <div style={{ width: 1, height: 40, background: "linear-gradient(180deg, rgba(255,255,255,0.2), transparent)" }} />
-        </div>
-      </section>
-
-      {/* ── PIPELINE ── */}
-      <section id="pipeline" style={{ padding: "120px 48px", borderTop: "1px solid rgba(255,255,255,0.06)" }}>
-        <div style={{ maxWidth: 1100, margin: "0 auto" }}>
-          <div style={{ textAlign: "center", marginBottom: 80 }}>
-            <div style={{ fontSize: 11, fontWeight: 700, color: "#34d399", letterSpacing: "0.15em", marginBottom: 16 }}>THE PIPELINE</div>
-            <h2 style={{ fontSize: "clamp(36px, 5vw, 60px)", fontWeight: 900, letterSpacing: "-0.03em", lineHeight: 1.1 }}>
-              Code. Legal. Deploy.
-              <br />
-              <span style={{ color: "rgba(255,255,255,0.3)" }}>In that order.</span>
-            </h2>
-          </div>
-
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 2 }}>
-            {[
-              { num: "01", label: "CODE", q: "Is my code safe?", tools: ["AI Debugger", "Vibe-Code Audit"], color: "#ef4444" },
-              { num: "02", label: "LEGAL", q: "Is my project legal?", tools: ["Regulation Tracker", "Loophole Finder"], color: "#a855f7" },
-              { num: "03", label: "DEPLOY", q: "Am I ready to ship?", tools: ["Deploy Checker", "Stress Tester"], color: "#34d399" },
-            ].map((stage, i) => (
-              <div key={i} style={{
-                background: i === 1 ? "#0a0a0a" : "transparent",
-                border: "1px solid rgba(255,255,255,0.06)",
-                borderRadius: i === 0 ? "16px 0 0 16px" : i === 2 ? "0 16px 16px 0" : "0",
-                padding: "40px 32px",
-              }}>
-                <div style={{ fontSize: 11, fontWeight: 700, color: stage.color, letterSpacing: "0.15em", marginBottom: 12 }}>STAGE {stage.num}</div>
-                <div style={{ fontSize: 32, fontWeight: 900, letterSpacing: "-0.03em", marginBottom: 8 }}>{stage.label}</div>
-                <div style={{ fontSize: 14, color: "rgba(255,255,255,0.35)", fontStyle: "italic", marginBottom: 24 }}>"{stage.q}"</div>
-                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                  {stage.tools.map((t, j) => (
-                    <div key={j} style={{ fontSize: 12, color: "rgba(255,255,255,0.5)", display: "flex", alignItems: "center", gap: 8 }}>
-                      <div style={{ width: 4, height: 4, borderRadius: "50%", background: stage.color }} /> {t}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* ── FEATURES ── */}
-      <section id="features" style={{ padding: "120px 48px", borderTop: "1px solid rgba(255,255,255,0.06)" }}>
-        <div style={{ maxWidth: 1100, margin: "0 auto" }}>
-          <div style={{ marginBottom: 80 }}>
-            <div style={{ fontSize: 11, fontWeight: 700, color: "#34d399", letterSpacing: "0.15em", marginBottom: 16 }}>SIX TOOLS</div>
-            <h2 style={{ fontSize: "clamp(36px, 5vw, 60px)", fontWeight: 900, letterSpacing: "-0.03em", lineHeight: 1.1, maxWidth: 600 }}>
-              Everything you need.
-              <br />
-              <span style={{ color: "rgba(255,255,255,0.3)" }}>Nothing you don't.</span>
-            </h2>
-          </div>
-
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12 }}>
-            {FEATURES.map((f, i) => (
-              <Link key={i} to={f.path} className="feat-card">
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20 }}>
-                  <div style={{ width: 40, height: 40, borderRadius: 10, background: `${f.color}12`, border: `1px solid ${f.color}25`, display: "flex", alignItems: "center", justifyContent: "center" }}>
-                    <f.icon size={18} color={f.color} />
-                  </div>
-                  <span className="tag-pill" style={{ background: `${f.color}10`, color: f.color, border: `1px solid ${f.color}20` }}>{f.tag}</span>
-                </div>
-                <div style={{ fontSize: 16, fontWeight: 700, color: "#fff", marginBottom: 10 }}>{f.title}</div>
-                <div style={{ fontSize: 13, color: "rgba(255,255,255,0.4)", lineHeight: 1.7 }}>{f.desc}</div>
-                <div style={{ marginTop: 20, fontSize: 12, color: f.color, display: "flex", alignItems: "center", gap: 4 }}>
-                  Try it <ArrowRight size={12} />
-                </div>
-              </Link>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* ── HOW IT WORKS ── */}
-      <section style={{ padding: "120px 48px", borderTop: "1px solid rgba(255,255,255,0.06)" }}>
-        <div style={{ maxWidth: 1100, margin: "0 auto", display: "grid", gridTemplateColumns: "1fr 1fr", gap: 80, alignItems: "center" }}>
-          <div>
-            <div style={{ fontSize: 11, fontWeight: 700, color: "#34d399", letterSpacing: "0.15em", marginBottom: 16 }}>HOW IT WORKS</div>
-            <h2 style={{ fontSize: "clamp(36px, 4vw, 52px)", fontWeight: 900, letterSpacing: "-0.03em", lineHeight: 1.1, marginBottom: 48 }}>
-              Three steps.
-              <br />
-              <span style={{ color: "rgba(255,255,255,0.3)" }}>Zero setup.</span>
-            </h2>
-            <div style={{ display: "flex", flexDirection: "column", gap: 0 }}>
-              {[
-                { num: "01", title: "Paste your code or describe your system", desc: "No config files. No setup. Just paste and go." },
-                { num: "02", title: "AI analyzes across every dimension", desc: "Bugs, security, legal compliance, deploy readiness — simultaneously." },
-                { num: "03", title: "Get fixes, not just warnings", desc: "Every issue includes a concrete fix you can apply immediately." },
-              ].map((step, i) => (
-                <div key={i} style={{ display: "flex", gap: 24, padding: "28px 0", borderBottom: i < 2 ? "1px solid rgba(255,255,255,0.05)" : "none" }}>
-                  <span style={{ fontSize: 11, fontWeight: 700, color: "#34d399", minWidth: 28, paddingTop: 3 }}>{step.num}</span>
-                  <div>
-                    <div style={{ fontSize: 16, fontWeight: 700, color: "#fff", marginBottom: 6 }}>{step.title}</div>
-                    <div style={{ fontSize: 13, color: "rgba(255,255,255,0.35)", lineHeight: 1.7 }}>{step.desc}</div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Demo card */}
-          <div style={{ background: "#0a0a0a", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 20, padding: 32, position: "relative", overflow: "hidden" }}>
-            <div style={{ position: "absolute", top: -60, right: -60, width: 200, height: 200, background: "radial-gradient(circle, rgba(52,211,153,0.06) 0%, transparent 70%)", borderRadius: "50%" }} />
-            <div style={{ fontSize: 11, color: "rgba(255,255,255,0.3)", marginBottom: 20, display: "flex", alignItems: "center", gap: 8 }}>
-              <div style={{ width: 6, height: 6, borderRadius: "50%", background: "#34d399" }} />
-              AI Debugger · Live scan
-            </div>
-            {[
-              { sev: "CRITICAL", color: "#ef4444", title: "SQL injection vulnerability", line: "L37" },
-              { sev: "CRITICAL", color: "#ef4444", title: "🔑 Hardcoded API key detected", line: "L12" },
-              { sev: "HIGH", color: "#f97316", title: "No error handling on DB query", line: "L54" },
-              { sev: "MEDIUM", color: "#eab308", title: "Vibe-code: console.log in production", line: "L89" },
-            ].map((issue, i) => (
-              <div key={i} style={{ display: "flex", gap: 12, alignItems: "flex-start", padding: "12px 0", borderBottom: i < 3 ? "1px solid rgba(255,255,255,0.04)" : "none" }}>
-                <span style={{ fontSize: 9, fontWeight: 700, color: issue.color, background: `${issue.color}12`, padding: "3px 7px", borderRadius: 4, letterSpacing: "0.06em", flexShrink: 0, marginTop: 2 }}>{issue.sev}</span>
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: 13, color: "rgba(255,255,255,0.8)", fontWeight: 500 }}>{issue.title}</div>
-                </div>
-                <span style={{ fontSize: 10, color: "rgba(255,255,255,0.2)", fontFamily: "monospace" }}>{issue.line}</span>
-              </div>
-            ))}
-            <div style={{ marginTop: 20, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-              <span style={{ fontSize: 11, color: "rgba(255,255,255,0.25)" }}>Health score</span>
-              <span style={{ fontSize: 24, fontWeight: 900, color: "#ef4444" }}>23</span>
-            </div>
-            <div style={{ height: 4, background: "rgba(255,255,255,0.06)", borderRadius: 2, marginTop: 8, overflow: "hidden" }}>
-              <div style={{ width: "23%", height: "100%", background: "#ef4444", borderRadius: 2 }} />
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* ── CTA ── */}
-      <section style={{ padding: "120px 48px", borderTop: "1px solid rgba(255,255,255,0.06)", textAlign: "center" }}>
-        <div style={{ maxWidth: 700, margin: "0 auto" }}>
-          <h2 style={{ fontSize: "clamp(40px, 6vw, 72px)", fontWeight: 900, letterSpacing: "-0.04em", lineHeight: 1.05, marginBottom: 24 }}>
-            Ready to ship
-            <br />
-            <span style={{ color: "#34d399" }}>responsibly?</span>
-          </h2>
-          <p style={{ fontSize: 17, color: "rgba(255,255,255,0.35)", marginBottom: 40, lineHeight: 1.7 }}>
-            Start scanning in 30 seconds. No setup, no API key required for the demo.
-          </p>
-          <div style={{ display: "flex", gap: 12, justifyContent: "center", flexWrap: "wrap" }}>
-            <Link to="/debugger" className="cta-btn">Start free scan <ArrowRight size={16} /></Link>
-            <a href="https://github.com/ishanshaurya/shipsafe" target="_blank" rel="noreferrer" className="sec-btn"><Github size={16} /> View on GitHub</a>
-          </div>
-        </div>
-      </section>
-
-      {/* ── FOOTER ── */}
-      <footer style={{ padding: "60px 48px 40px", borderTop: "1px solid rgba(255,255,255,0.06)" }}>
-        <div style={{ maxWidth: 1100, margin: "0 auto" }}>
-          <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr 1fr", gap: 40, marginBottom: 48 }}>
+      <main id="main">
+        <section className="ls-hero">
+          <div className="ls-wrap">
             <div>
-              <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
-                <Logo size={24} />
-                <span style={{ fontSize: 16, fontWeight: 800, color: "#fff" }}>ShipSafe</span>
-              </div>
-              <p style={{ fontSize: 13, color: "rgba(255,255,255,0.25)", lineHeight: 1.7, maxWidth: 260 }}>
-                Build, validate & deploy AI responsibly. The developer toolkit for shipping AI that works and complies.
+              <h1 className="ls-display">Know what's blocking your AI project before you ship it.</h1>
+              <p className="ls-lede">
+                Paste code or import a GitHub repo for a scored review. Describe your system to see which AI regulations and legal grey areas apply.
               </p>
-            </div>
-            {[
-              { heading: "Product", links: [["AI Debugger","/debugger"],["Vibe-Code Audit","/audit"],["Loophole Finder","/loopholes"],["Deploy Checker","/deploy-check"],["Stress Tester","/stress-test"]] },
-              { heading: "Resources", links: [["Regulations","/regulations"],["Dashboard","/dashboard"]] },
-              { heading: "Connect", links: [["GitHub","https://github.com/ishanshaurya/shipsafe"],["Sign in","/login"]] },
-            ].map((col, i) => (
-              <div key={i}>
-                <div style={{ fontSize: 11, fontWeight: 700, color: "rgba(255,255,255,0.25)", letterSpacing: "0.1em", marginBottom: 16 }}>{col.heading.toUpperCase()}</div>
-                {col.links.map(([label, href], j) => (
-                  href.startsWith("http")
-                    ? <a key={j} href={href} target="_blank" rel="noreferrer" style={{ display: "block", fontSize: 13, color: "rgba(255,255,255,0.35)", textDecoration: "none", marginBottom: 10, transition: "color 0.2s" }} onMouseEnter={e=>e.currentTarget.style.color="#fff"} onMouseLeave={e=>e.currentTarget.style.color="rgba(255,255,255,0.35)"}>{label}</a>
-                    : <Link key={j} to={href} style={{ display: "block", fontSize: 13, color: "rgba(255,255,255,0.35)", textDecoration: "none", marginBottom: 10, transition: "color 0.2s" }} onMouseEnter={e=>e.currentTarget.style.color="#fff"} onMouseLeave={e=>e.currentTarget.style.color="rgba(255,255,255,0.35)"}>{label}</Link>
-                ))}
+              <div className="ls-cta-row">
+                <Link to="/debugger" className="ls-btn ls-btn-primary">Start a scan</Link>
+                <a href="#sample" className="ls-btn ls-btn-secondary">See a sample</a>
               </div>
-            ))}
+            </div>
+
+            <div id="sample" className="ls-panel" role="group" aria-label="Sample review">
+              <div className="ls-panel-head">
+                <div>
+                  <div className="ls-panel-title">Sample review</div>
+                  <div className="ls-panel-name">Express REST API</div>
+                </div>
+                <div className="ls-verdict">
+                  <Flag verdict="blocked" size={48} />
+                  <span className="ls-display ls-verdict-score">38</span>
+                  <span className="ls-display ls-verdict-word">Blocked</span>
+                </div>
+              </div>
+              <ul style={{ listStyle: "none" }}>
+                {SAMPLE_FINDINGS.map((f, i) => (
+                  <li key={f.title} className="ls-finding">
+                    <span className="ls-staff" style={{ "--delay": `${i * 120}ms` }}>
+                      <Flag verdict={f.verdict} size={24} labelled />
+                    </span>
+                    <div>
+                      <div className="ls-finding-title">{f.title}</div>
+                      <div className="ls-finding-file">{f.file}</div>
+                    </div>
+                    <span className="ls-finding-sev">{f.severity}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
           </div>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", paddingTop: 24, borderTop: "1px solid rgba(255,255,255,0.06)", fontSize: 12, color: "rgba(255,255,255,0.2)" }}>
-            <span>Built by Shaurya Ishan</span>
-            <span>© 2026 ShipSafe. Ship responsibly.</span>
+        </section>
+
+        <section className="ls-section" aria-labelledby="checks-heading">
+          <div className="ls-wrap">
+            <h2 id="checks-heading" className="ls-display">What it checks</h2>
+            <ul className="ls-ledger">
+              {TOOL_GROUPS.flatMap(({ group, tools }) =>
+                tools.map((t, i) => (
+                  <li key={t.path}>
+                    <Link to={t.path} className="ls-tool-row">
+                      <span className="ls-tool-group">{i === 0 ? group : ""}</span>
+                      <span className="ls-tool-name">{t.name}</span>
+                      <span className="ls-tool-desc">{t.desc}</span>
+                    </Link>
+                  </li>
+                ))
+              )}
+            </ul>
           </div>
+        </section>
+
+        <section className="ls-section" aria-labelledby="steps-heading">
+          <div className="ls-wrap">
+            <h2 id="steps-heading" className="ls-display">How a scan works</h2>
+            <ol className="ls-steps">
+              {STEPS.map((text, i) => (
+                <li key={text} className="ls-step">
+                  <span className="ls-step-num" aria-hidden="true">{i + 1}</span>
+                  <span className="ls-step-text">{text}</span>
+                </li>
+              ))}
+            </ol>
+          </div>
+        </section>
+
+        <section className="ls-section ls-final" aria-labelledby="final-heading">
+          <div className="ls-wrap">
+            <div>
+              <h2 id="final-heading" className="ls-display">Run your first scan</h2>
+              <p>Your API keys stay on the server and never reach the browser.</p>
+            </div>
+            <Link to="/debugger" className="ls-btn ls-btn-primary">Start a scan</Link>
+          </div>
+        </section>
+      </main>
+
+      <footer className="ls-footer">
+        <div className="ls-wrap">
+          <span>Built by Shaurya Ishan</span>
+          <nav aria-label="Footer">
+            <a href={GITHUB_URL} target="_blank" rel="noreferrer">GitHub</a>
+            <Link to="/login">Sign in</Link>
+          </nav>
         </div>
       </footer>
     </div>

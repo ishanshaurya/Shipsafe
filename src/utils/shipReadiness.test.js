@@ -5,7 +5,7 @@ describe("computeShipReadiness", () => {
   it("returns NO DATA for an empty or unscored scan list", () => {
     expect(computeShipReadiness([]).verdict).toBe("NO DATA")
     expect(computeShipReadiness(null).verdict).toBe("NO DATA")
-    expect(computeShipReadiness([{ scan_type: "stress-test", score: null, created_at: "2026-01-01" }]).verdict).toBe("NO DATA")
+    expect(computeShipReadiness([{ scan_type: "debugger", score: null, created_at: "2026-01-01" }]).verdict).toBe("NO DATA")
   })
 
   it("inverts the loopholes risk score (100 = max risk → 0 readiness contribution)", () => {
@@ -26,11 +26,11 @@ describe("computeShipReadiness", () => {
 
   it("normalizes by the weight actually used when not every tool has been scanned", () => {
     // Only debugger (weight 0.25) scanned — should equal its own score, not
-    // a weighted average diluted by the three unscanned tools.
+    // a weighted average diluted by the two unscanned tools.
     const result = computeShipReadiness([{ scan_type: "debugger", score: 88, created_at: "2026-01-01" }])
     expect(result.score).toBe(88)
-    expect(result.completeness).toBe(0.25)
-    expect(result.missingTools).toEqual(["audit", "loopholes", "deploy-check"])
+    expect(result.completeness).toBeCloseTo(1 / 3)
+    expect(result.missingTools).toEqual(["audit", "loopholes"])
   })
 
   it("picks the right verdict band", () => {
@@ -44,7 +44,7 @@ describe("computeShipReadiness", () => {
 
 describe("toolLabel", () => {
   it("returns a human label for known tools and the raw type otherwise", () => {
-    expect(toolLabel("deploy-check")).toBe("Deploy Readiness")
+    expect(toolLabel("loopholes")).toBe("Legal Risk")
     expect(toolLabel("made-up-tool")).toBe("made-up-tool")
   })
 })

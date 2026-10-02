@@ -1,6 +1,6 @@
 import { createClient } from "@supabase/supabase-js"
 
-const ALLOWED_TOOLS = new Set(["debugger", "audit", "loopholes", "deploy-check", "stress-test", "regulations"])
+const ALLOWED_TOOLS = new Set(["debugger", "audit", "loopholes", "regulations"])
 
 const RATE_LIMIT_WINDOW_MS = 60_000
 const RATE_LIMIT_MAX = 20 // raised from 10 — 4 providers pooled behind this now, not 1
@@ -176,65 +176,7 @@ Rules:
 - riskScore: 0-30 low, 31-60 moderate, 61-100 high.
 - Respond ONLY with the JSON object.`,
 
-  "deploy-check": `You are ShipSafe Deploy Checker — you validate deployment configurations and catch production gotchas before they cause outages.
-
-You MUST respond with ONLY valid JSON — no markdown, no backticks, no explanation outside the JSON.
-
-Response format:
-{
-  "readinessScore": <number 0-100>,
-  "summary": "<2 sentences>",
-  "checks": [
-    {
-      "id": <number>,
-      "category": "env" | "security" | "performance" | "monitoring" | "database" | "cors",
-      "name": "<check name>",
-      "status": "pass" | "warn" | "fail",
-      "detail": "<what was found>",
-      "fix": "<what to do>"
-    }
-  ],
-  "platformNotes": ["<platform-specific advice>"],
-  "criticalBlockers": ["<must fix before shipping>"]
-}
-
-Rules:
-- Max 10 checks. Flag both missing things AND misconfigurations.
-- criticalBlockers: only items that WILL cause production failures.
-- readinessScore: 90-100 ship it, 70-89 minor fixes, 40-69 needs work, 0-39 not ready.
-- Respond ONLY with the JSON object.`,
-
   regulations: `You are a global AI regulation expert. Return ONLY valid JSON, no markdown, no backticks, no explanation. Only include regulations you are confident are real. If unsure, omit it. Return maximum 4 regulations. Each summary max 2 sentences. Checklist max 4 items. Checklist items must be actionable and testable (e.g. 'Add watermark to AI-generated media'), never generic advice like 'ensure compliance'.`,
-
-  "stress-test": `You are ShipSafe Stress Tester — you predict bottlenecks and failure points in a described architecture under load.
-
-You MUST respond with ONLY valid JSON — no markdown, no backticks, no explanation outside the JSON.
-
-Response format:
-{
-  "summary": "<2 sentences>",
-  "tiers": [
-    {
-      "users": <number>,
-      "label": "<e.g. '10 concurrent users'>",
-      "status": "green" | "yellow" | "red",
-      "responseTime": "<estimated p95 response time>",
-      "bottleneck": "<which component breaks first or null>",
-      "notes": "<what happens at this tier>"
-    }
-  ],
-  "weakPoints": [
-    { "component": "<name>", "issue": "<what breaks>", "fix": "<how to fix>" }
-  ],
-  "safeCapacity": "<estimated safe concurrent user count>",
-  "recommendations": ["<scaling recommendation>"]
-}
-
-Rules:
-- Always include tiers for 10, 100, 1000, and 10000 users.
-- weakPoints: max 5. recommendations: max 4.
-- Be honest that this is AI-predicted, not real load testing.
-- Respond ONLY with the JSON object.`,
 }
 
 // ── Non-streaming callers ───────────────────────────────────────────
