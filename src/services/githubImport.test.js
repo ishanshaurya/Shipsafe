@@ -49,6 +49,11 @@ describe("errors", () => {
     expect(error).toBe("Repository not found or is private.")
   })
 
+  it("shows the sign-in message when the session is missing or expired", async () => {
+    mockFetch(() => Promise.resolve(jsonResponse({ error: "Sign in required" }, 401)))
+    expect(await listRepoFiles("https://github.com/a/b")).toEqual({ data: null, error: "Sign in required" })
+  })
+
   it("falls back to a per-call message when the server sends none", async () => {
     mockFetch(() => Promise.resolve(jsonResponse({}, 400)))
     expect((await importRepo("u")).error).toBe("Failed to fetch repo")

@@ -1,7 +1,7 @@
 import { useState } from "react"
 import { Loader2 } from "lucide-react"
-import { callAIStream, extractScore } from "../services/scanService"
-import { saveScan, attachEmbedding, authHeader } from "../services/supabaseService"
+import { runScan, findSimilarScans } from "../services/scanRun"
+import { importRepo, listRepoFiles, fetchRepoFiles } from "../services/githubImport"
 import { useAuth } from "../hooks/useAuth"
 import ReportButton from "../components/ReportButton"
 import NextSteps from "../components/NextSteps"
@@ -10,7 +10,6 @@ import CodePanel, { FixPanel, CodeSnippet } from "../components/CodePanel"
 import Finding, { Detail } from "../components/Finding"
 import VerdictBanner from "../components/VerdictBanner"
 import Notice from "../components/Notice"
-import { getSuggestions } from "../utils/crossToolSuggestions"
 import { scoreVerdict, severityVerdict } from "../utils/verdict"
 
 const LANGS = ["JavaScript","TypeScript","Python","Java","Go","Rust","C++","PHP","Ruby","SQL"]
@@ -102,118 +101,62 @@ export default function Debugger() {
   const fetchFromGitHub = async () => {
     if (!githubUrl.trim() || githubLoading) return
     setGithubLoading(true); setGithubError(null); setGithubInfo(null); setFileList(null)
-    try {
-      const res = await fetch("/api/github", { method: "POST", headers: { "Content-Type": "application/json", ...(await authHeader()) }, body: JSON.stringify({ url: githubUrl.trim() }) })
-      const data = await res.json()
-      if (!res.ok) { setGithubError(data.error || "Failed to fetch repo"); return }
-      setCode(data.code)
-      setLang(mapLanguage(data.repo.language))
-      setCtx(`${data.repo.name}${data.repo.description ? " - " + data.repo.description : ""}`)
-      setGithubInfo(data)
-      setResult(null); setError(null); setExp({})
-    } catch {
-      setGithubError("Network error — could not reach GitHub")
-    } finally {
-      setGithubLoading(false)
-    }
+    const { data, error: importError } = await importRepo(githubUrl)
+    setGithubLoading(false)
+    if (importError) { setGithubError(importError); return }
+    setCode(data.code)
+    setLang(mapLanguage(data.repo.language))
+    setCtx(`${data.repo.name}${data.repo.description ? " - " + data.repo.description : ""}`)
+    setGithubInfo(data)
+    setResult(null); setError(null); setExp({})
   }
 
   // Step 1: Fetch file tree only (list mode)
   const fetchFileList = async () => {
     if (!githubUrl.trim() || githubLoading) return
     setGithubLoading(true); setGithubError(null); setGithubInfo(null); setFileList(null)
-    try {
-      const res = await fetch("/api/github", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", ...(await authHeader()) },
-        body: JSON.stringify({ url: githubUrl.trim(), mode: "list" }),
-      })
-      const data = await res.json()
-      if (!res.ok) { setGithubError(data.error || "Failed to fetch repo"); return }
-      setFileList(data.files)
-      setFilePickRepo(data.repo)
-      // Pre-check auto-selected files
-      setSelectedFiles(data.files.filter(f => f.autoSelected).map(f => f.path))
-    } catch {
-      setGithubError("Network error — could not reach GitHub")
-    } finally {
-      setGithubLoading(false)
-    }
+    const { data, error: listError } = await listRepoFiles(githubUrl)
+    setGithubLoading(false)
+    if (listError) { setGithubError(listError); return }
+    setFileList(data.files)
+    setFilePickRepo(data.repo)
+    // Pre-check auto-selected files
+    setSelectedFiles(data.files.filter(f => f.autoSelected).map(f => f.path))
   }
 
   // Step 3: Fetch only selected files and populate code editor
   const fetchSelectedFiles = async () => {
     if (!selectedFiles.length || githubLoading) return
     setGithubLoading(true); setGithubError(null)
-    try {
-      const res = await fetch("/api/github", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", ...(await authHeader()) },
-        body: JSON.stringify({ url: githubUrl.trim(), files: selectedFiles }),
-      })
-      const data = await res.json()
-      if (!res.ok) { setGithubError(data.error || "Failed to fetch files"); return }
-      setCode(data.code)
-      setLang(mapLanguage(filePickRepo?.language))
-      setCtx(`${filePickRepo?.name}${filePickRepo?.description ? " - " + filePickRepo.description : ""}`)
-      setGithubInfo(data)
-      setFileList(null)
-      setResult(null); setError(null); setExp({})
-    } catch {
-      setGithubError("Network error — could not reach GitHub")
-    } finally {
-      setGithubLoading(false)
-    }
+    const { data, error: fetchError } = await fetchRepoFiles(githubUrl, selectedFiles)
+    setGithubLoading(false)
+    if (fetchError) { setGithubError(fetchError); return }
+    setCode(data.code)
+    setLang(mapLanguage(filePickRepo?.language))
+    setCtx(`${filePickRepo?.name}${filePickRepo?.description ? " - " + filePickRepo.description : ""}`)
+    setGithubInfo(data)
+    setFileList(null)
+    setResult(null); setError(null); setExp({})
   }
 
-  const runScan = async () => {
+  const handleScan = async () => {
     if (!code.trim()||loading) return
     setLoading(true); setResult(null); setError(null); setExp({}); setSuggestions([]); setSimilarScans([]); setStreamingText("")
     try {
-      const { content: parsed, error: aiError } = await callAIStream(
-        "debugger",
-        { code, language: lang, context: ctx },
-        (accumulated) => setStreamingText(accumulated)
-      )
+      const { result: parsed, suggestions: nextSteps, error: aiError } = await runScan({
+        tool: "debugger",
+        payload: { code, language: lang, context: ctx },
+        user,
+        stream: true,
+        onChunk: setStreamingText,
+      })
       setStreamingText("")
       if (aiError) { setError(aiError); return }
       setResult(parsed)
-      setSuggestions(getSuggestions("debugger", parsed))
+      setSuggestions(nextSteps)
 
-      if (user) {
-        saveScan(user.id,"debugger",code,parsed,extractScore("debugger",parsed)).then(({ data, error }) => {
-          if (error) { console.error("Save failed:", error.message); return }
-          const scanId = data?.[0]?.id
-          if (scanId) attachEmbedding(scanId, "debugger", parsed)
-        })
-
-        // Fetch similar past scans asynchronously — non-blocking
-        ;(async () => {
-          try {
-            const issueTitles = (parsed.issues || []).map(i => i.title).filter(Boolean).join(", ")
-            const text = `debugger: ${parsed.summary || ""}. Issues: ${issueTitles}`
-            const auth = await authHeader()
-            const genRes = await fetch("/api/embed", {
-              method: "POST",
-              headers: { "Content-Type": "application/json", ...auth },
-              body: JSON.stringify({ action: "generate", text }),
-            })
-            if (!genRes.ok) return
-            const { embedding } = await genRes.json()
-            if (!embedding) return
-            const simRes = await fetch("/api/embed", {
-              method: "POST",
-              headers: { "Content-Type": "application/json", ...auth },
-              body: JSON.stringify({ action: "similar", embedding }),
-            })
-            if (!simRes.ok) return
-            const { similar } = await simRes.json()
-            if (similar?.length) setSimilarScans(similar)
-          } catch (err) {
-            console.error("[Debugger] similar scans fetch failed (non-fatal):", err)
-          }
-        })()
-      }
+      // Similar past scans load in the background, never blocking the result
+      if (user) findSimilarScans("debugger", parsed).then((similar) => { if (similar.length) setSimilarScans(similar) })
 
       const ae={}
       parsed.issues.forEach(i=>{ if(i.severity==="critical"||i.severity==="high") ae[i.id]=true })
@@ -282,7 +225,7 @@ export default function Debugger() {
           />
 
           <div className="stack" style={{ gap: 12 }}>
-            <button type="button" className="btn btn-primary btn-block" onClick={runScan} disabled={loading || !code.trim()}>
+            <button type="button" className="btn btn-primary btn-block" onClick={handleScan} disabled={loading || !code.trim()}>
               {loading && <Loader2 size={16} className="spin" aria-hidden="true" />}
               Run review
             </button>

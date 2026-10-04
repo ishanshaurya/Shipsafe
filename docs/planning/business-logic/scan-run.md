@@ -29,7 +29,7 @@ Findings from reading the code (what the plan is based on):
 - Verified: lint 0 errors, 35 tests, build. **Not yet manually checked** (needs `npx vercel dev` + a signed-in user): run each tool, confirm the scan row appears in Dashboard history.
 
 ### Phase 3 — Migrate Debugger (streaming + embeddings)
-- [ ] Debugger via `runScan({ stream: true, onChunk })`; similar-scans via `findSimilarScans`. Verify streaming text still renders.
+- [x] Debugger via `runScan({ stream: true, onChunk })`; similar-scans via `findSimilarScans`. The inline save and embed code in the page is gone. **Not yet manually checked:** streaming text rendering and the similar-scans panel need `npx vercel dev` and a signed-in user.
 
 ### Phase 4 — Cleanup & verify
 - [ ] Remove dead code (per-page save blocks, unused imports); update the "ONLY FILE" header comments in `scanService.js` if now inaccurate.

@@ -2,7 +2,7 @@ import { useState } from "react"
 import { Check, Loader2 } from "lucide-react"
 import { runScan } from "../services/scanRun"
 import { useAuth } from "../hooks/useAuth"
-import { authHeader } from "../services/supabaseService"
+import { importRepo, listRepoFiles, fetchRepoFiles } from "../services/githubImport"
 import ReportButton from "../components/ReportButton"
 import NextSteps from "../components/NextSteps"
 import RepoImport from "../components/RepoImport"
@@ -164,66 +164,40 @@ export default function Audit() {
   const fetchFromGitHub = async () => {
     if (!githubUrl.trim() || githubLoading) return
     setGithubLoading(true); setGithubError(null); setGithubInfo(null); setFileList(null)
-    try {
-      const res = await fetch("/api/github", { method: "POST", headers: { "Content-Type": "application/json", ...(await authHeader()) }, body: JSON.stringify({ url: githubUrl.trim() }) })
-      const data = await res.json()
-      if (!res.ok) { setGithubError(data.error || "Failed to fetch repo"); setGithubLoading(false); return }
-      setCode(data.code)
-      setGithubInfo(data)
-      setResult(null); setExp({})
-      setGithubLoading(false)
-      // Auto-run audit after fetching
-      setTimeout(() => runAuditWithCode(data.code), 50)
-    } catch {
-      setGithubError("Network error — could not reach GitHub")
-      setGithubLoading(false)
-    }
+    const { data, error: importError } = await importRepo(githubUrl)
+    setGithubLoading(false)
+    if (importError) { setGithubError(importError); return }
+    setCode(data.code)
+    setGithubInfo(data)
+    setResult(null); setExp({})
+    // Auto-run audit after fetching
+    setTimeout(() => runAuditWithCode(data.code), 50)
   }
 
   // Step 1: Fetch file tree only (list mode)
   const fetchFileList = async () => {
     if (!githubUrl.trim() || githubLoading) return
     setGithubLoading(true); setGithubError(null); setGithubInfo(null); setFileList(null)
-    try {
-      const res = await fetch("/api/github", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", ...(await authHeader()) },
-        body: JSON.stringify({ url: githubUrl.trim(), mode: "list" }),
-      })
-      const data = await res.json()
-      if (!res.ok) { setGithubError(data.error || "Failed to fetch repo"); return }
-      setFileList(data.files)
-      setFilePickRepo(data.repo)
-      setSelectedFiles(data.files.filter(f => f.autoSelected).map(f => f.path))
-    } catch {
-      setGithubError("Network error — could not reach GitHub")
-    } finally {
-      setGithubLoading(false)
-    }
+    const { data, error: listError } = await listRepoFiles(githubUrl)
+    setGithubLoading(false)
+    if (listError) { setGithubError(listError); return }
+    setFileList(data.files)
+    setFilePickRepo(data.repo)
+    setSelectedFiles(data.files.filter(f => f.autoSelected).map(f => f.path))
   }
 
   // Step 3: Fetch only selected files then auto-audit
   const fetchSelectedFiles = async () => {
     if (!selectedFiles.length || githubLoading) return
     setGithubLoading(true); setGithubError(null)
-    try {
-      const res = await fetch("/api/github", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", ...(await authHeader()) },
-        body: JSON.stringify({ url: githubUrl.trim(), files: selectedFiles }),
-      })
-      const data = await res.json()
-      if (!res.ok) { setGithubError(data.error || "Failed to fetch files"); return }
-      setCode(data.code)
-      setGithubInfo(data)
-      setFileList(null)
-      setResult(null); setExp({})
-      setGithubLoading(false)
-      setTimeout(() => runAuditWithCode(data.code), 50)
-    } catch {
-      setGithubError("Network error — could not reach GitHub")
-      setGithubLoading(false)
-    }
+    const { data, error: fetchError } = await fetchRepoFiles(githubUrl, selectedFiles)
+    setGithubLoading(false)
+    if (fetchError) { setGithubError(fetchError); return }
+    setCode(data.code)
+    setGithubInfo(data)
+    setFileList(null)
+    setResult(null); setExp({})
+    setTimeout(() => runAuditWithCode(data.code), 50)
   }
 
   const runAuditWithCode = async (codeToAudit) => {
