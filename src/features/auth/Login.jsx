@@ -1,7 +1,7 @@
 import { useState } from "react"
 import { Link, useNavigate } from "react-router-dom"
 import { Github, Loader2 } from "lucide-react"
-import { supabase } from "../../shared/supabaseClient"
+import { signUp, signInWithPassword, signInWithGitHub } from "./authService"
 import Logo from "../../shared/components/Logo"
 
 /* ═══════════════════════════════════════════════════════════
@@ -30,11 +30,11 @@ export default function Login() {
 
     try {
       if (mode === "signup") {
-        const { error } = await supabase.auth.signUp({ email, password })
+        const { error } = await signUp(email, password)
         if (error) throw error
         setMessage("Check your email to confirm your account.")
       } else {
-        const { error } = await supabase.auth.signInWithPassword({ email, password })
+        const { error } = await signInWithPassword(email, password)
         if (error) throw error
         navigate("/dashboard")
       }
@@ -48,10 +48,7 @@ export default function Login() {
     setLoading(true)
     setError(null)
     try {
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider: "github",
-        options: { redirectTo: window.location.origin + "/dashboard" }
-      })
+      const { error } = await signInWithGitHub()
       if (error) throw error
     } catch (err) {
       setError(err.message)

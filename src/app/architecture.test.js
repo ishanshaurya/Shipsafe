@@ -20,8 +20,7 @@ const SUPABASE_USERS = [
   "shared/authHeader.js",
   "features/scan/scanHistory.js",
   "features/reports/reportService.js",
-  "features/auth/AuthProvider.jsx", // TEMP until authService
-  "features/auth/Login.jsx", // TEMP until authService
+  "features/auth/authService.js",
 ]
 
 function sourceFiles(dir) {

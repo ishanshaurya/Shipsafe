@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react"
-import { supabase } from "../../shared/supabaseClient"
+import { getCurrentUser, onAuthChange, signOut as authSignOut } from "./authService"
 import { AuthContext } from "./useAuth"
 
 export function AuthProvider({ children }) {
@@ -7,22 +7,15 @@ export function AuthProvider({ children }) {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    // Get initial session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setUser(session?.user ?? null)
+    getCurrentUser().then((current) => {
+      setUser(current)
       setLoading(false)
     })
-
-    // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null)
-    })
-
-    return () => subscription.unsubscribe()
+    return onAuthChange(setUser)
   }, [])
 
   const signOut = async () => {
-    await supabase.auth.signOut()
+    await authSignOut()
     setUser(null)
   }
 
