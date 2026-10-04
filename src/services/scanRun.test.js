@@ -9,6 +9,7 @@ vi.mock("./supabaseService.js", () => ({
   saveScan: vi.fn(),
   attachEmbedding: vi.fn(),
   embeddingText: (tool) => `${tool}: text`,
+  authHeader: async () => ({ Authorization: "Bearer test-token" }),
 }))
 vi.mock("../lib/supabase.js", () => ({
   supabase: { auth: { getSession: () => Promise.resolve({ data: { session: null } }) } },
@@ -106,7 +107,9 @@ describe("findSimilarScans", () => {
     const out = await findSimilarScans("debugger", debuggerResult, user)
 
     expect(out).toEqual([{ id: "old" }])
-    expect(JSON.parse(fetchMock.mock.calls[1][1].body)).toMatchObject({ action: "similar", userId: "user-1" })
+    const [, similarReq] = fetchMock.mock.calls[1]
+    expect(JSON.parse(similarReq.body)).toEqual({ action: "similar", embedding: [0.1] })
+    expect(similarReq.headers.Authorization).toBe("Bearer test-token")
   })
 
   it("returns [] when the embed endpoint fails or throws", async () => {

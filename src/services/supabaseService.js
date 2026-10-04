@@ -12,6 +12,12 @@
 
 import { supabase } from "../lib/supabase"
 
+// Session bearer token for our own /api/* endpoints, which all verify it server-side.
+export async function authHeader() {
+  const { data: { session } } = await supabase.auth.getSession()
+  return session ? { Authorization: `Bearer ${session.access_token}` } : {}
+}
+
 // ─────────────────────────────────────────────
 // SCAN HISTORY
 // Table: scan_history
@@ -161,10 +167,11 @@ export function embeddingText(scanType, result) {
 export async function attachEmbedding(scanId, scanType, result) {
   try {
     const text = embeddingText(scanType, result)
+    const auth = await authHeader()
 
     const genRes = await fetch("/api/embed", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", ...auth },
       body: JSON.stringify({ action: "generate", text }),
     })
     if (!genRes.ok) return
@@ -174,7 +181,7 @@ export async function attachEmbedding(scanId, scanType, result) {
 
     await fetch("/api/embed", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", ...auth },
       body: JSON.stringify({ action: "save", scanId, embedding }),
     })
   } catch (err) {

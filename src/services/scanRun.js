@@ -10,7 +10,7 @@ import {
   normalizeAuditResult,
   normalizeLoopholesResult,
 } from "./scanService.js"
-import { saveScan, attachEmbedding, embeddingText } from "./supabaseService.js"
+import { saveScan, attachEmbedding, embeddingText, authHeader } from "./supabaseService.js"
 import { getSuggestions } from "../utils/crossToolSuggestions.js"
 
 // Tools without an entry keep the validated AI shape as-is.
@@ -67,11 +67,12 @@ async function persistScan(userId, tool, input, result, score) {
 /**
  * Past scans of this user that look like `result`. Non-fatal: returns [] on any failure.
  */
-export async function findSimilarScans(tool, result, user) {
+export async function findSimilarScans(tool, result) {
   try {
+    const auth = await authHeader()
     const genRes = await fetch("/api/embed", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", ...auth },
       body: JSON.stringify({ action: "generate", text: embeddingText(tool, result) }),
     })
     if (!genRes.ok) return []
@@ -80,8 +81,8 @@ export async function findSimilarScans(tool, result, user) {
 
     const simRes = await fetch("/api/embed", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action: "similar", embedding, userId: user.id }),
+      headers: { "Content-Type": "application/json", ...auth },
+      body: JSON.stringify({ action: "similar", embedding }),
     })
     if (!simRes.ok) return []
     const { similar } = await simRes.json()

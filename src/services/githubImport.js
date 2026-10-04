@@ -7,12 +7,14 @@
 //   { data: <server payload | null>, error: <string | null>, aborted?: true }
 // and never throws. `aborted` means the caller's signal fired — ignore it.
 
+import { authHeader } from "./supabaseService.js"
+
 async function post(body, fallbackError, signal) {
   let res
   try {
     res = await fetch("/api/github", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", ...(await authHeader()) },
       body: JSON.stringify(body),
       signal,
     })

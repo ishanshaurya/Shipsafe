@@ -1,7 +1,7 @@
 import { useState } from "react"
 import { Loader2 } from "lucide-react"
 import { callAIStream, extractScore } from "../services/scanService"
-import { saveScan, attachEmbedding } from "../services/supabaseService"
+import { saveScan, attachEmbedding, authHeader } from "../services/supabaseService"
 import { useAuth } from "../hooks/useAuth"
 import ReportButton from "../components/ReportButton"
 import NextSteps from "../components/NextSteps"
@@ -192,9 +192,10 @@ export default function Debugger() {
           try {
             const issueTitles = (parsed.issues || []).map(i => i.title).filter(Boolean).join(", ")
             const text = `debugger: ${parsed.summary || ""}. Issues: ${issueTitles}`
+            const auth = await authHeader()
             const genRes = await fetch("/api/embed", {
               method: "POST",
-              headers: { "Content-Type": "application/json" },
+              headers: { "Content-Type": "application/json", ...auth },
               body: JSON.stringify({ action: "generate", text }),
             })
             if (!genRes.ok) return
@@ -202,8 +203,8 @@ export default function Debugger() {
             if (!embedding) return
             const simRes = await fetch("/api/embed", {
               method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ action: "similar", embedding, userId: user.id }),
+              headers: { "Content-Type": "application/json", ...auth },
+              body: JSON.stringify({ action: "similar", embedding }),
             })
             if (!simRes.ok) return
             const { similar } = await simRes.json()

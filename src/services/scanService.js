@@ -346,7 +346,7 @@ export function normalizeLoopholesResult(parsed) {
 const _regulationsCache = new Map()
 
 function isValidUrl(str) {
-  try { new URL(str); return true } catch { return false }
+  try { return ["http:", "https:"].includes(new URL(str).protocol) } catch { return false }
 }
 
 function normalizeRegulation(r) {

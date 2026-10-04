@@ -12,7 +12,6 @@
 - **Regulations fall back to mock data** (`mockRegulationResult`) when the AI call fails.
 
 ## Known endpoint risks
-Verified by reading the code; none fixed yet (tracked in [planning/api/endpoint-hardening.md](planning/api/endpoint-hardening.md)).
-- `/api/embed` has no auth and trusts `userId` from the body. With the service-role key set it bypasses RLS, so anyone can read another user's similar scans or overwrite embeddings by `scanId`. It also has no rate limit.
-- `/api/github` has no auth and `CORS *`, so anyone can spend the server's `GITHUB_TOKEN` rate limit.
+Tracked in [planning/api/endpoint-hardening.md](planning/api/endpoint-hardening.md).
+- `/api/embed` and `/api/github` now require a Supabase session (shared `api/_lib/auth.js`). Neither has its own rate limit, so a signed-in user can still spend Gemini/`GITHUB_TOKEN` quota.
 - `/api/gemini` is authenticated and rate limited; its CORS allows only `Content-Type`, fine because production is same-origin.

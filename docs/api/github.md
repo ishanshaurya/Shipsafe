@@ -1,7 +1,7 @@
 # POST /api/github
 
 Fetches scannable source files from a GitHub repo for Audit and Debugger. Uses `GITHUB_TOKEN` if set (raises rate limits, allows private repos the token can read).
-**Auth:** none. **CORS:** `*`.
+**Auth:** Supabase session required (`401` otherwise). **CORS:** `https://shipsafe-app.vercel.app`. Use a read-only token scoped to public repos only.
 
 ## Request
 | Field | Type | Notes |
@@ -23,4 +23,4 @@ A single-file URL skips the tree and returns that file (`fileCount: 1`). `repo` 
 - **Known limitation:** list mode and the `files` filter both operate on that 25-file subset, so a large repo's full tree is never shown. Tracked in [planning](../planning/api/github-import.md).
 
 ## Errors
-`400` missing/invalid URL · `404` empty repo, no scannable files, unreadable file · `502` GitHub error or rate limit exceeded (message passed through).
+`401` no/invalid session · `400` missing/invalid URL (owner/repo limited to `[A-Za-z0-9._-]`) · `404` empty repo, no scannable files, unreadable file · `502` GitHub error or rate limit exceeded (message passed through).

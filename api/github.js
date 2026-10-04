@@ -1,3 +1,5 @@
+import { verifyUser } from "./_lib/auth.js"
+
 // api/github.js — Vercel Serverless Function (v2)
 // Uses Git Trees API for full recursive repo scanning
 
@@ -31,6 +33,10 @@ const SKIP_FILES = [
 const MAX_FILES = 25
 const MAX_FILE_SIZE = 60000 // 60KB
 
+// GitHub owner/repo charset — anything else could rewrite the API path
+const NAME_RE = /^[A-Za-z0-9._-]+$/
+const isSafeName = (n) => NAME_RE.test(n) && n !== "." && n !== ".."
+
 function parseGitHubUrl(url) {
   // Normalise — strip protocol, trailing slashes, whitespace
   const cleaned = url.trim().replace(/^https?:\/\//, "").replace(/\/$/, "")
@@ -45,6 +51,7 @@ function parseGitHubUrl(url) {
 
   const owner = parts[0]
   const repo = parts[1].replace(/\.git$/, "")
+  if (!isSafeName(owner) || !isSafeName(repo)) return null
 
   // Default result
   const result = { owner, repo, branch: null, subdir: null, singleFile: null }
@@ -162,7 +169,7 @@ function smartSelect(allFiles) {
 
 async function fetchFileContent(path, owner, repo, token) {
   try {
-    const data = await githubFetch(`/repos/${owner}/${repo}/contents/${path}`, token)
+    const data = await githubFetch(`/repos/${owner}/${repo}/contents/${path.split("/").map(encodeURIComponent).join("/")}`, token)
     if (data.encoding === "base64" && data.content) {
       return Buffer.from(data.content, "base64").toString("utf-8")
     }
@@ -173,7 +180,7 @@ async function fetchFileContent(path, owner, repo, token) {
 }
 
 export default async function handler(req, res) {
-  res.setHeader("Access-Control-Allow-Origin", "*")
+  res.setHeader("Access-Control-Allow-Origin", "https://shipsafe-app.vercel.app")
   res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS")
   res.setHeader("Access-Control-Allow-Headers", "Content-Type")
 
@@ -182,8 +189,11 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: "Method not allowed" })
   }
 
-  const { url, mode, files: selectedFiles } = req.body
-  if (!url || !url.trim()) {
+  const { user } = await verifyUser(req)
+  if (!user) return res.status(401).json({ error: "Sign in required" })
+
+  const { url, mode, files: selectedFiles } = req.body || {}
+  if (!url || typeof url !== "string" || !url.trim()) {
     return res.status(400).json({ error: "No GitHub URL provided" })
   }
 
@@ -225,7 +235,7 @@ export default async function handler(req, res) {
 
     // Step 3: ONE call — full recursive file tree via Git Trees API
     const treeData = await githubFetch(
-      `/repos/${parsed.owner}/${parsed.repo}/git/trees/${branch}?recursive=1`,
+      `/repos/${parsed.owner}/${parsed.repo}/git/trees/${encodeURIComponent(branch)}?recursive=1`,
       token
     )
 
@@ -267,7 +277,7 @@ export default async function handler(req, res) {
     }
 
     // If specific files were requested, filter to only those
-    const filesToFetch = selectedFiles
+    const filesToFetch = Array.isArray(selectedFiles)
       ? selected.filter((f) => selectedFiles.includes(f.path))
       : selected
 

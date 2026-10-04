@@ -12,8 +12,9 @@ import { useAuth } from "./useAuth"
 import { saveReport } from "../services/supabaseService"
 
 function makeSlug() {
-  // 8-char random alphanumeric slug — collision probability negligible at this scale
-  return Math.random().toString(36).slice(2, 10)
+  // 16 hex chars from a CSPRNG — public report links must not be guessable
+  const bytes = crypto.getRandomValues(new Uint8Array(8))
+  return Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("")
 }
 
 export function useReport() {
