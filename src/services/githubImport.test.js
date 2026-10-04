@@ -1,5 +1,10 @@
 import { describe, it, expect, vi, afterEach } from "vitest"
-import { importRepo, listRepoFiles, fetchRepoFiles } from "./githubImport.js"
+
+vi.mock("./supabaseService.js", () => ({
+  authHeader: async () => ({ Authorization: "Bearer test-token" }),
+}))
+
+const { importRepo, listRepoFiles, fetchRepoFiles } = await import("./githubImport.js")
 
 const jsonResponse = (body, status = 200) =>
   ({ ok: status < 400, status, json: () => Promise.resolve(body) })
@@ -71,5 +76,13 @@ describe("errors", () => {
     mockFetch(() => Promise.reject(Object.assign(new Error("aborted"), { name: "AbortError" })))
     const result = await importRepo("https://github.com/a/b", { signal: new AbortController().signal })
     expect(result).toEqual({ data: null, error: null, aborted: true })
+  })
+})
+
+describe("auth", () => {
+  it("sends the session bearer token on every request", async () => {
+    const fetchMock = mockFetch(async () => jsonResponse({ code: "x" }))
+    await importRepo("https://github.com/o/r")
+    expect(fetchMock.mock.calls[0][1].headers.Authorization).toBe("Bearer test-token")
   })
 })
