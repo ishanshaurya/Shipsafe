@@ -10,6 +10,7 @@ import Loopholes from "../features/tools/Loopholes"
 import Audit from "../features/tools/Audit"
 import Regulations from "../features/regulations/Regulations"
 import Report from "../features/reports/Report"
+import ErrorBoundary from "./ErrorBoundary"
 
 function NotFound() {
   return (
@@ -28,26 +29,28 @@ function NotFound() {
 
 export default function App() {
   return (
-    <AuthProvider>
-      <BrowserRouter>
-        <Routes>
-          <Route path="/" element={<Landing />} />
-          <Route path="/login" element={<Login />} />
+    <ErrorBoundary>
+      <AuthProvider>
+        <BrowserRouter>
+          <Routes>
+            <Route path="/" element={<Landing />} />
+            <Route path="/login" element={<Login />} />
 
-          <Route element={<ProtectedRoute />}>
-            <Route element={<Layout />}>
-              <Route path="/dashboard" element={<Dashboard />} />
-              <Route path="/debugger" element={<Debugger />} />
-              <Route path="/audit" element={<Audit />} />
-              <Route path="/regulations" element={<Regulations />} />
-              <Route path="/loopholes" element={<Loopholes />} />
+            <Route element={<ProtectedRoute />}>
+              <Route element={<Layout />}>
+                <Route path="/dashboard" element={<Dashboard />} />
+                <Route path="/debugger" element={<Debugger />} />
+                <Route path="/audit" element={<Audit />} />
+                <Route path="/regulations" element={<Regulations />} />
+                <Route path="/loopholes" element={<Loopholes />} />
+              </Route>
             </Route>
-          </Route>
 
-          <Route path="/report/:slug" element={<Report />} />
-          <Route path="*" element={<NotFound />} />
-        </Routes>
-      </BrowserRouter>
-    </AuthProvider>
+            <Route path="/report/:slug" element={<Report />} />
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+        </BrowserRouter>
+      </AuthProvider>
+    </ErrorBoundary>
   )
 }

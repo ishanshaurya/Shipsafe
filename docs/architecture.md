@@ -3,29 +3,36 @@
 ## Stack
 React 19 + Vite 8 + React Router 7 (SPA, inline styles, Tailwind v4 installed) · Vercel serverless functions in `api/` · Supabase (Auth, Postgres, RLS) · Vitest + ESLint, CI on GitHub Actions (lint, test, build; Node 22).
 
-## Module map (current)
+## Module map
+Frontend (`src/`), grouped by feature. `src/main.jsx` mounts `app/App.jsx`; `index.css` holds the design system.
+
 | Path | Responsibility |
 |---|---|
-| `src/pages/` | One page per route: Landing, Login, Dashboard, Debugger, Audit, Regulations, Loopholes, Report |
-| `src/components/` | Layout (rail/drawer), Flag, VerdictBanner, Finding, CodePanel, RepoImport, Notice, NextSteps, ReportButton, ProtectedRoute, Logo |
-| `src/hooks/` | `useAuth`/`AuthProvider`, `useReport` |
-| `src/services/scanService.js` | Only caller of `/api/gemini`: prompt building, parse, validate, per-tool normalizers, `extractScore` |
-| `src/services/scanRun.js` | *New, uncommitted.* One scan start-to-finish: call → normalize → score → suggestions → save |
-| `src/services/githubImport.js` | *New, uncommitted.* Client for `/api/github` (quick / list / fetch); never throws |
-| `src/services/supabaseService.js` | Only module that talks to Supabase tables |
-| `src/utils/` | `crossToolSuggestions` (rules engine), `shipReadiness` (weighted score) |
-| `src/data/mockResults.js` | Demo data for logged-out Dashboard + regulations fallback |
-| `api/` | `gemini.js` (AI proxy), `github.js` (repo fetcher), `embed.js` (embeddings) |
-| `supabase/migrations/` | Only `0001_rate_limits.sql` is in the repo (see gotchas) |
+| `app/` | `App.jsx` (routes), `Layout.jsx` (rail/drawer), `ErrorBoundary.jsx`, `architecture.test.js` (boundary rules) |
+| `features/auth/` | `authService` (only caller of Supabase Auth), `AuthProvider`, `useAuth`, `ProtectedRoute`, `Login` |
+| `features/scan/` | `scanService` (only caller of `/api/gemini`: prompts, parse, validate, normalizers, `extractScore`), `scanRun` (one scan start to finish), `scanHistory` (`scan_history` table and embeddings), `crossToolSuggestions`, `NextSteps` |
+| `features/github-import/` | `githubImport` (only caller of `/api/github`, never throws), `RepoImport` (URL field and file picker) |
+| `features/tools/` | `Debugger`, `Audit`, `Loopholes` pages |
+| `features/regulations/` | `Regulations` page, `regulationsService` (AI query, normalize, flagged fallback), `mockRegulation` |
+| `features/reports/` | `Report` (public viewer), `ReportButton`, `useReport`, `reportService` (`reports` table) |
+| `features/dashboard/` | `Dashboard`, `shipReadiness` (weighted score), `mockScans` |
+| `features/landing/` | `Landing` |
+| `shared/` | `supabaseClient`, `authHeader`, `toolRegistry`, `verdict`, `components/` (Logo, Flag, Finding, CodePanel, VerdictBanner, Notice) |
+| `api/` | `gemini.js` (AI proxy), `github.js` (repo fetcher), `embed.js` (embeddings), `_lib/auth.js` |
+| `supabase/migrations/` | Only `0001_rate_limits.sql` is on `redesign/main`; lane B is adding the rest |
 
-Target layout after the refactor (`app/`, `features/*`, `shared/`, `api/_lib/`): [`planning/plans/refactor-sequence.md`](planning/plans/refactor-sequence.md) item 6.
+Rules, enforced by `app/architecture.test.js`:
+- Only `scanService`, `scanRun`, `scanHistory`, `githubImport` and `regulationsService` call `fetch("/api/...")`. Each attaches the session token.
+- Only `supabaseClient`, `authHeader`, `authService`, `scanHistory` and `reportService` touch the Supabase client. Pages and components never do.
+- No source file over 400 lines.
+Adding a new API caller or Supabase user means editing the allowlist in that test on purpose.
 
 ## Request flow (a scan)
-1. Page calls `callAI(tool, payload)` (or `callAIStream`) in `scanService`.
+1. Page calls `runScan({ tool, payload, user })` in `scanRun`, which calls `callAI` or `callAIStream` in `scanService`.
 2. `scanService` POSTs `/api/gemini` with the user's Supabase access token.
 3. The function verifies the session, applies a per-user rate limit, picks the system prompt for `tool` server-side, and tries providers in rotation.
 4. `scanService` parses the JSON, validates it, normalizes it for the page.
-5. The page saves the scan via `saveScan` (Supabase `scan_history`); Debugger also embeds it via `/api/embed`.
+5. `scanRun` saves the scan via `saveScan` (`scan_history`) without blocking the page; Debugger scans are also embedded via `/api/embed`, and `findSimilarScans` looks up similar past scans.
 
 ## External services
 | Service | Used for | Env var names |
