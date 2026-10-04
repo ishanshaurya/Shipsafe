@@ -103,7 +103,7 @@ export default function Debugger() {
     if (!githubUrl.trim() || githubLoading) return
     setGithubLoading(true); setGithubError(null); setGithubInfo(null); setFileList(null)
     try {
-      const res = await fetch("/api/github", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ url: githubUrl.trim() }) })
+      const res = await fetch("/api/github", { method: "POST", headers: { "Content-Type": "application/json", ...(await authHeader()) }, body: JSON.stringify({ url: githubUrl.trim() }) })
       const data = await res.json()
       if (!res.ok) { setGithubError(data.error || "Failed to fetch repo"); return }
       setCode(data.code)
@@ -125,7 +125,7 @@ export default function Debugger() {
     try {
       const res = await fetch("/api/github", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...(await authHeader()) },
         body: JSON.stringify({ url: githubUrl.trim(), mode: "list" }),
       })
       const data = await res.json()
@@ -148,7 +148,7 @@ export default function Debugger() {
     try {
       const res = await fetch("/api/github", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...(await authHeader()) },
         body: JSON.stringify({ url: githubUrl.trim(), files: selectedFiles }),
       })
       const data = await res.json()

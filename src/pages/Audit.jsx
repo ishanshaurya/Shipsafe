@@ -2,6 +2,7 @@ import { useState } from "react"
 import { Check, Loader2 } from "lucide-react"
 import { runScan } from "../services/scanRun"
 import { useAuth } from "../hooks/useAuth"
+import { authHeader } from "../services/supabaseService"
 import ReportButton from "../components/ReportButton"
 import NextSteps from "../components/NextSteps"
 import RepoImport from "../components/RepoImport"
@@ -164,7 +165,7 @@ export default function Audit() {
     if (!githubUrl.trim() || githubLoading) return
     setGithubLoading(true); setGithubError(null); setGithubInfo(null); setFileList(null)
     try {
-      const res = await fetch("/api/github", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ url: githubUrl.trim() }) })
+      const res = await fetch("/api/github", { method: "POST", headers: { "Content-Type": "application/json", ...(await authHeader()) }, body: JSON.stringify({ url: githubUrl.trim() }) })
       const data = await res.json()
       if (!res.ok) { setGithubError(data.error || "Failed to fetch repo"); setGithubLoading(false); return }
       setCode(data.code)
@@ -186,7 +187,7 @@ export default function Audit() {
     try {
       const res = await fetch("/api/github", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...(await authHeader()) },
         body: JSON.stringify({ url: githubUrl.trim(), mode: "list" }),
       })
       const data = await res.json()
@@ -208,7 +209,7 @@ export default function Audit() {
     try {
       const res = await fetch("/api/github", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...(await authHeader()) },
         body: JSON.stringify({ url: githubUrl.trim(), files: selectedFiles }),
       })
       const data = await res.json()
