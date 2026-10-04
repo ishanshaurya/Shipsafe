@@ -6,5 +6,5 @@ Found while writing `docs/` (see [gotchas](../../gotchas.md#known-endpoint-risks
 - [x] `/api/embed`: don't use the service-role key for user-scoped reads; rely on RLS or check ownership of `scanId`.
 - [ ] `/api/embed`: add rate limiting.
 - [x] `/api/github`: require a session; restrict CORS. (per-user rate limit still open)
-- [x] Add `GITHUB_TOKEN`, `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` to `.env.example`.
+- [x] Add `GITHUB_TOKEN`, `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE` to `.env.example`.
 - [ ] Commit the missing Supabase migrations (`scan_history`, `reports`, `regulations`, `users`, `match_scans`).

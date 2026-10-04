@@ -14,4 +14,4 @@ Errors: `401` no/invalid session · `400` missing fields, invalid action, `embed
 
 ## Notes
 - `match_scans` and the `embedding` column are not in `supabase/migrations/`; TODO(confirm) where they are defined.
-- DB access uses `SUPABASE_SERVICE_ROLE_KEY` if set (every query is filtered by the verified `user.id`), else the caller-scoped client. No rate limit yet.
+- DB access uses `SUPABASE_SERVICE_ROLE` if set (every query is filtered by the verified `user.id`), else the caller-scoped client. No rate limit yet.

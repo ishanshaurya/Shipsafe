@@ -30,7 +30,7 @@ Target layout after the refactor (`app/`, `features/*`, `shared/`, `api/_lib/`):
 ## External services
 | Service | Used for | Env var names |
 |---|---|---|
-| Supabase | Auth, `scan_history`, `reports`, `regulations`, `users`, `rate_limits` | `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`; server: `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` (embed only) |
+| Supabase | Auth, `scan_history`, `reports`, `regulations`, `users`, `rate_limits` | `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`; server: `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE` (embed only) |
 | Gemini | Primary AI + `text-embedding-004` embeddings | `GEMINI_API_KEY` |
 | Groq (`openai/gpt-oss-120b`) | AI fallback | `GROQ_API_KEY` |
 | Cerebras (`gpt-oss-120b`) | AI fallback | `CEREBRAS_API_KEY` |
