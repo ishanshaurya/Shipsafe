@@ -43,9 +43,15 @@ export function cooldownFor(status) {
 
 // Rotates the starting provider each call so load spreads across the pool
 // instead of always hitting the same one first.
-export function orderedProviders() {
+// Latency-sensitive factual lookups (regulations): fast hosts first, no Gemini
+// "thinking", and a per-attempt timeout so a slow or hung provider fails over.
+export const FAST_OPTS = { fastFirst: true, timeoutMs: 8_000, noThinking: true }
+const FAST_ORDER = ["cerebras", "groq", "sambanova", "gemini"]
+
+export function orderedProviders(opts = {}) {
   const avail = availableProviders()
   if (avail.length === 0) return []
+  if (opts.fastFirst) return avail.sort((a, b) => FAST_ORDER.indexOf(a.name) - FAST_ORDER.indexOf(b.name))
   const start = rotor % avail.length
   rotor++
   return [...avail.slice(start), ...avail.slice(0, start)]
@@ -55,14 +61,18 @@ export function orderedProviders() {
 // Each throws { status, message } on failure so the pool can decide the
 // right cooldown and move to the next provider.
 
-async function callGemini(systemPrompt, userPrompt, apiKey) {
+async function callGemini(systemPrompt, userPrompt, apiKey, opts = {}) {
   const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`
   const body = JSON.stringify({
     system_instruction: { parts: [{ text: systemPrompt }] },
     contents: [{ parts: [{ text: userPrompt }] }],
-    generationConfig: { temperature: 0.1, maxOutputTokens: 8192 },
+    generationConfig: {
+      temperature: 0.1,
+      maxOutputTokens: 8192,
+      ...(opts.noThinking && { thinkingConfig: { thinkingBudget: 0 } }),
+    },
   })
-  const response = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body })
+  const response = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body, ...signalFor(opts) })
   if (!response.ok) {
     const errText = await response.text().catch(() => "")
     throw { status: response.status, message: `Gemini returned ${response.status}: ${errText.slice(0, 200)}` }
@@ -73,7 +83,7 @@ async function callGemini(systemPrompt, userPrompt, apiKey) {
   return content
 }
 
-async function callOpenAICompatible(provider, systemPrompt, userPrompt, apiKey) {
+async function callOpenAICompatible(provider, systemPrompt, userPrompt, apiKey, opts = {}) {
   const response = await fetch(`${provider.baseUrl}/chat/completions`, {
     method: "POST",
     headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
@@ -87,6 +97,7 @@ async function callOpenAICompatible(provider, systemPrompt, userPrompt, apiKey) 
         { role: "user", content: userPrompt },
       ],
     }),
+    ...signalFor(opts),
   })
   if (!response.ok) {
     const errText = await response.text().catch(() => "")
@@ -98,26 +109,30 @@ async function callOpenAICompatible(provider, systemPrompt, userPrompt, apiKey) 
   return content
 }
 
-async function callProvider(provider, systemPrompt, userPrompt) {
+const signalFor = (opts) => (opts.timeoutMs ? { signal: AbortSignal.timeout(opts.timeoutMs) } : {})
+
+async function callProvider(provider, systemPrompt, userPrompt, opts) {
   const apiKey = process.env[provider.envKey]
-  if (provider.name === "gemini") return callGemini(systemPrompt, userPrompt, apiKey)
-  return callOpenAICompatible(provider, systemPrompt, userPrompt, apiKey)
+  if (provider.name === "gemini") return callGemini(systemPrompt, userPrompt, apiKey, opts)
+  return callOpenAICompatible(provider, systemPrompt, userPrompt, apiKey, opts)
 }
 
 // Tries providers in rotation order, falling through on failure. Only
 // throws once every configured provider has failed or is cooling down.
-export async function generateWithFallback(systemPrompt, userPrompt, log) {
-  const order = orderedProviders()
+export async function generateWithFallback(systemPrompt, userPrompt, log, opts = {}) {
+  const order = orderedProviders(opts)
   if (order.length === 0) throw { status: 503, message: "All providers are unavailable or unconfigured" }
 
   let lastErr
   for (const [i, provider] of order.entries()) {
     const t0 = performance.now()
     try {
-      const content = await callProvider(provider, systemPrompt, userPrompt)
+      const content = await callProvider(provider, systemPrompt, userPrompt, opts)
       log?.stage("provider", performance.now() - t0, { provider: provider.name, ok: true, attempt: i + 1 })
       return { content, provider: provider.name }
-    } catch (err) {
+    } catch (caught) {
+      // A timeout has no HTTP status; treat it as a transient 504 (short cooldown).
+      const err = caught?.name === "TimeoutError" ? { status: 504, message: `${provider.name} timed out` } : caught
       lastErr = err
       markCooldown(provider.name, cooldownFor(err.status))
       log?.stage("provider", performance.now() - t0, { provider: provider.name, ok: false, status: err.status, attempt: i + 1 })

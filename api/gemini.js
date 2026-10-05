@@ -6,6 +6,7 @@ import {
   configuredProviders,
   orderedProviders,
   generateWithFallback,
+  FAST_OPTS,
   streamProvider,
   markCooldown,
   cooldownFor,
@@ -153,7 +154,12 @@ export default withLog("gemini", async function handler(req, res, log) {
   // ── Non-streaming ──
   if (!stream) {
     try {
-      const { content, provider } = await generateWithFallback(systemPrompt, userPrompt, log)
+      const { content, provider } = await generateWithFallback(
+        systemPrompt,
+        userPrompt,
+        log,
+        tool === "regulations" ? FAST_OPTS : undefined
+      )
       return res.status(200).json({ content, provider })
     } catch (err) {
       log.error("providers_failed", err)
