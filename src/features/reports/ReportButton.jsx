@@ -7,15 +7,18 @@
 //   resultData — the full scan result object (button is hidden if null)
 
 import { useState } from "react"
-import { Loader2 } from "lucide-react"
 import { useReport } from "./useReport"
-import Notice from "../../shared/ui/Notice"
+import Button from "../../shared/ui/Button"
+import Card from "../../shared/ui/Card"
+import ErrorState from "../../shared/ui/ErrorState"
 
 export default function ReportButton({ scanType, title, resultData }) {
   const { generating, reportUrl, reportError, generateReport } = useReport()
   const [copied, setCopied] = useState(false)
 
   if (!resultData) return null
+
+  const create = () => generateReport({ scanType, title, resultData })
 
   const copy = () => {
     navigator.clipboard.writeText(reportUrl)
@@ -25,28 +28,20 @@ export default function ReportButton({ scanType, title, resultData }) {
 
   if (reportUrl) {
     return (
-      <div className="panel" style={{ padding: 16 }} role="status">
+      <Card style={{ padding: 16 }} role="status">
         <div style={{ fontWeight: 600, marginBottom: 8 }}>Report link created</div>
         <div className="field-row">
           <input className="field mono" readOnly value={reportUrl} aria-label="Report link" onFocus={(e) => e.target.select()} style={{ fontSize: 14 }} />
-          <button type="button" className="btn btn-secondary" onClick={copy}>{copied ? "Copied" : "Copy link"}</button>
+          <Button variant="secondary" onClick={copy}>{copied ? "Copied" : "Copy link"}</Button>
         </div>
-      </div>
+      </Card>
     )
   }
 
   return (
     <div className="stack" style={{ gap: 8 }}>
-      <button
-        type="button"
-        className="btn btn-secondary btn-block"
-        onClick={() => generateReport({ scanType, title, resultData })}
-        disabled={generating}
-      >
-        {generating && <Loader2 size={16} className="spin" aria-hidden="true" />}
-        Create report link
-      </button>
-      {reportError && <Notice tone="error" title="Couldn't create the report link">{reportError}</Notice>}
+      <Button variant="secondary" block onClick={create} loading={generating}>Create report link</Button>
+      {reportError && <ErrorState title="Couldn't create the report link" onRetry={create}>{reportError}</ErrorState>}
     </div>
   )
 }

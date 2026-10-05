@@ -249,7 +249,7 @@ export default function Regulations() {
               <section>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 16, marginBottom: 8, flexWrap: "wrap" }}>
                   <h2 className="h2">Developer checklist</h2>
-                  <button type="button" className="btn btn-secondary btn-sm" onClick={copyChecklist}>{copied ? "Copied" : "Copy checklist"}</button>
+                  <Button variant="secondary" size="sm" onClick={copyChecklist}>{copied ? "Copied" : "Copy checklist"}</Button>
                 </div>
                 <ul className="ledger">
                   {checklist.map((item, i) => (

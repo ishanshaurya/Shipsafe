@@ -1,8 +1,11 @@
 import { useState } from "react"
 import { Link, useNavigate } from "react-router-dom"
-import { Github, Loader2 } from "lucide-react"
+import { Github } from "lucide-react"
 import { signUp, signInWithPassword, signInWithGitHub } from "./authService"
 import Logo from "../../shared/components/Logo"
+import Button from "../../shared/ui/Button"
+import Card from "../../shared/ui/Card"
+import Field from "../../shared/ui/Field"
 
 /* ═══════════════════════════════════════════════════════════
    LOGIN / SIGNUP PAGE — Supabase Auth
@@ -69,10 +72,10 @@ export default function Login() {
           <h1 className="display" style={{ fontSize: 40, marginTop: 24 }}>{isLogin ? "Sign in" : "Create your account"}</h1>
         </div>
 
-        <div className="panel panel-pad">
-          <button type="button" className="btn btn-secondary btn-block" onClick={handleGitHub} disabled={loading}>
+        <Card pad>
+          <Button variant="secondary" block onClick={handleGitHub} disabled={loading}>
             <Github size={18} aria-hidden="true" /> Continue with GitHub
-          </button>
+          </Button>
 
           <div style={{ display: "flex", alignItems: "center", gap: 12, margin: "20px 0" }} aria-hidden="true">
             <div style={{ flex: 1, height: 1, background: "var(--color-rule)" }} />
@@ -82,28 +85,30 @@ export default function Login() {
 
           <form onSubmit={handleEmail} className="stack" noValidate={false}>
             <div>
-              <label className="label" htmlFor="login-email">Email</label>
-              <input id="login-email" className="field" type="email" autoComplete="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="you@example.com" aria-describedby={error ? "login-error" : undefined} />
+              <Field id="login-email" label="Email" type="email" autoComplete="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="you@example.com" aria-describedby={error ? "login-error" : undefined} />
             </div>
 
             <div>
-              <label className="label" htmlFor="login-password">Password</label>
-              <div className="field-row">
-                <input id="login-password" className="field" type={showPw ? "text" : "password"} autoComplete={isLogin ? "current-password" : "new-password"} value={password} onChange={e => setPassword(e.target.value)} minLength={6} aria-describedby={error ? "login-error" : "login-pw-hint"} />
-                <button type="button" className="btn btn-ghost btn-sm" aria-pressed={showPw} onClick={() => setShowPw(!showPw)}>
-                  {showPw ? "Hide" : "Show"}
-                </button>
-              </div>
+              <Field
+                id="login-password" label="Password" type={showPw ? "text" : "password"}
+                autoComplete={isLogin ? "current-password" : "new-password"}
+                value={password} onChange={e => setPassword(e.target.value)} minLength={6}
+                aria-describedby={error ? "login-error" : "login-pw-hint"}
+                action={
+                  <Button variant="ghost" size="sm" aria-pressed={showPw} onClick={() => setShowPw(!showPw)}>
+                    {showPw ? "Hide" : "Show"}
+                  </Button>
+                }
+              />
               {!isLogin && <div id="login-pw-hint" className="hint">Use at least 6 characters.</div>}
             </div>
 
             {error && <div id="login-error" className="msg msg-error" role="alert"><div className="msg-title">{error}</div></div>}
             {message && <div className="msg" role="status"><div className="msg-title">{message}</div></div>}
 
-            <button type="submit" className="btn btn-primary btn-block" disabled={loading || !email || !password}>
-              {loading && <Loader2 size={16} className="spin" aria-hidden="true" />}
+            <Button type="submit" block loading={loading} disabled={!email || !password}>
               {isLogin ? "Sign in" : "Create account"}
-            </button>
+            </Button>
           </form>
 
           <div style={{ textAlign: "center", marginTop: 16, fontSize: 14 }} className="muted">
@@ -112,7 +117,7 @@ export default function Login() {
               {isLogin ? "Create an account" : "Sign in"}
             </button>
           </div>
-        </div>
+        </Card>
 
         <div style={{ textAlign: "center", marginTop: 24 }}>
           <Link to="/" className="small">Back to ShipSafe</Link>

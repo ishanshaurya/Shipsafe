@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { Outlet, NavLink, Link, useLocation } from 'react-router-dom'
 import { Menu, X } from 'lucide-react'
 import Logo from '../shared/components/Logo'
+import Button from '../shared/ui/Button'
 import { useAuth } from '../features/auth/useAuth'
 import { TOOL_GROUPS } from '../shared/toolRegistry'
 
@@ -38,9 +39,9 @@ export default function Layout() {
             <Logo size={28} tone="ink" />
             ShipSafe
           </Link>
-          <button type="button" className="btn btn-onink btn-sm shell-close" aria-label="Close menu" onClick={() => setOpen(false)}>
+          <Button variant="onink" size="sm" className="shell-close" aria-label="Close menu" onClick={() => setOpen(false)}>
             <X size={18} />
-          </button>
+          </Button>
         </div>
 
         <nav className="shell-nav" aria-label="Main">
@@ -58,16 +59,16 @@ export default function Layout() {
         {user && (
           <div className="rail-user">
             <div className="rail-user-email" title={user.email}>{user.email}</div>
-            <button type="button" className="btn btn-onink btn-sm" onClick={signOut}>Sign out</button>
+            <Button variant="onink" size="sm" onClick={signOut}>Sign out</Button>
           </div>
         )}
       </aside>
 
       <div className="shell-main">
         <header className="shell-topbar">
-          <button type="button" className="btn btn-ghost btn-sm" aria-label="Open menu" aria-expanded={open} aria-controls="rail" onClick={() => setOpen(true)}>
+          <Button variant="ghost" size="sm" aria-label="Open menu" aria-expanded={open} aria-controls="rail" onClick={() => setOpen(true)}>
             <Menu size={20} />
-          </button>
+          </Button>
           ShipSafe
         </header>
         <main id="main" className="page">
