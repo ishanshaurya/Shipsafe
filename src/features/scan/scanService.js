@@ -1,7 +1,8 @@
 // src/features/scan/scanService.js
 //
-// THE ONLY FILE IN THE APP THAT CALLS /api/gemini.
+// THE ONLY FILE THAT CALLS /api/gemini FOR THE SCAN TOOLS (regulationsService has its own query).
 import { authHeader } from "../../shared/authHeader.js"
+import { TOOL_MODULES } from "./toolModules.js"
 //
 // Every tool calls callAI(prompt, options) — one function, one place.
 // If the proxy URL changes, the request format changes, or we swap AI
@@ -22,99 +23,21 @@ import { authHeader } from "../../shared/authHeader.js"
 const TOOLS = new Set(["debugger", "audit", "loopholes", "regulations"])
 
 // ─────────────────────────────────────────────
-// USER PROMPT BUILDERS
-// Each tool needs a different prompt structure.
-// Keeping them here means the page just passes raw input.
+// PER-TOOL LOGIC
+// Prompt text, response validation, scoring and normalizing live in each
+// tool's own module (see toolModules.js). This file only dispatches to them.
+// A tool without a module (regulations) gets its payload passed through as-is.
 // ─────────────────────────────────────────────
 
 function buildUserPrompt(tool, payload) {
-  switch (tool) {
-    case "debugger": {
-      const { code, language = "JavaScript", context = "" } = payload
-      let prompt = `Analyze this ${language} code. Return max 8 issues as JSON.\n\n`
-      if (context) prompt += `Context: ${context}\n\n`
-      prompt += `Code:\n\`\`\`${language.toLowerCase()}\n${code}\n\`\`\``
-      return prompt
-    }
-
-    case "audit": {
-      const { projectDescription, files = "" } = payload
-      let prompt = `Audit this project for vibe-code patterns and responsible engineering.\n\n`
-      prompt += `Project description: ${projectDescription}\n\n`
-      if (files) prompt += `Files / code:\n${files}`
-      return prompt
-    }
-
-    case "loopholes": {
-      const { systemDescription, countries = [], regulation = "" } = payload
-      let prompt = `Find regulatory grey areas for this AI system.\n\n`
-      prompt += `System: ${systemDescription}\n`
-      if (countries.length) prompt += `Target countries: ${countries.join(", ")}\n`
-      if (regulation) prompt += `Specific regulation to analyze: ${regulation}\n`
-      return prompt
-    }
-
-    default:
-      return JSON.stringify(payload)
-  }
+  const mod = TOOL_MODULES[tool]
+  return mod ? mod.buildPrompt(payload) : JSON.stringify(payload)
 }
 
-// ─────────────────────────────────────────────
-// RESPONSE VALIDATORS
-// Each tool has required fields — catch bad AI responses early
-// before they cause confusing UI errors downstream.
-// ─────────────────────────────────────────────
-
+// Catch bad AI responses early, before they cause confusing UI errors downstream.
 export function validate(tool, parsed) {
-  switch (tool) {
-    case "debugger":
-      if (typeof parsed.healthScore !== "number") throw new Error("Missing healthScore")
-      if (!Array.isArray(parsed.issues)) throw new Error("Missing issues array")
-      // Ensure stats exist — generate if AI skipped it
-      if (!parsed.stats) {
-        const issues = parsed.issues
-        parsed.stats = {
-          totalIssues: issues.length,
-          critical: issues.filter(i => i.severity === "critical").length,
-          high:     issues.filter(i => i.severity === "high").length,
-          medium:   issues.filter(i => i.severity === "medium").length,
-          low:      issues.filter(i => i.severity === "low").length,
-        }
-      }
-      if (!Array.isArray(parsed.positives)) parsed.positives = []
-      break
-
-    case "audit":
-      if (typeof parsed.overallScore !== "number") throw new Error("Missing overallScore")
-      if (!parsed.categories) throw new Error("Missing categories")
-      if (!Array.isArray(parsed.actionItems)) parsed.actionItems = []
-      if (!Array.isArray(parsed.vibeCodePatterns)) parsed.vibeCodePatterns = []
-      break
-
-    case "loopholes":
-      if (typeof parsed.riskScore !== "number") throw new Error("Missing riskScore")
-      if (!Array.isArray(parsed.greyAreas)) throw new Error("Missing greyAreas array")
-      if (!Array.isArray(parsed.recommendations)) parsed.recommendations = []
-      if (!Array.isArray(parsed.upcomingChanges)) parsed.upcomingChanges = []
-      break
-
-  }
-  return parsed
-}
-
-// ─────────────────────────────────────────────
-// SCORE EXTRACTOR
-// Each tool stores a different field as the "score" in scan_history.
-// This pulls the right one so saveScan() gets a number.
-// ─────────────────────────────────────────────
-
-export function extractScore(tool, parsed) {
-  switch (tool) {
-    case "debugger":    return parsed.healthScore    ?? null
-    case "audit":       return parsed.overallScore   ?? null
-    case "loopholes":   return parsed.riskScore      ?? null
-    default:            return null
-  }
+  const mod = TOOL_MODULES[tool]
+  return mod ? mod.validate(parsed) : parsed
 }
 
 /**
@@ -264,69 +187,5 @@ export async function callAI(tool, payload) {
   } catch (err) {
     console.error("[scanService] callAI threw:", err)
     return { content: null, error: err.message || "Unexpected error. Please try again." }
-  }
-}
-
-// ─────────────────────────────────────────────
-// RESULT NORMALIZERS
-// The AI returns a lean, validated shape (see the system prompts in api/gemini.js).
-// Each tool's page was built around a richer shape (ids, verdicts,
-// derived stats). These adapters bridge the two so the pages don't
-// need to change.
-// ─────────────────────────────────────────────
-
-const AUDIT_CATEGORIES = ["security", "quality", "maintainability", "aiPatterns", "deployReady"]
-
-export function normalizeAuditResult(parsed) {
-  const scores = {}
-  const issues = []
-  let fid = 1
-  for (const key of AUDIT_CATEGORIES) {
-    const cat = parsed.categories?.[key] || {}
-    scores[key] = typeof cat.score === "number" ? cat.score : 100
-    ;(Array.isArray(cat.issues) ? cat.issues : []).forEach(i => {
-      issues.push({
-        id: fid++,
-        category: key,
-        severity: ["critical", "high", "medium", "low"].includes(i.severity) ? i.severity : "medium",
-        title: i.title || "Issue",
-        detail: i.detail || "",
-        fix: i.fix || "",
-      })
-    })
-  }
-  const overallScore = typeof parsed.overallScore === "number"
-    ? parsed.overallScore
-    : Math.round(AUDIT_CATEGORIES.reduce((s, k) => s + scores[k], 0) / AUDIT_CATEGORIES.length)
-
-  return {
-    overallScore,
-    scores,
-    summary: parsed.summary || "",
-    issues,
-    verdict: overallScore >= 70 ? "SHIP-READY" : overallScore >= 40 ? "NEEDS WORK" : "NOT SAFE TO SHIP",
-    verdictColor: overallScore >= 70 ? "#22c55e" : overallScore >= 40 ? "#f59e0b" : "#ef4444",
-  }
-}
-
-export function normalizeLoopholesResult(parsed) {
-  const greyAreas = (Array.isArray(parsed.greyAreas) ? parsed.greyAreas : []).map((g, i) => ({
-    id: i + 1,
-    regulation: g.regulation || "Unknown regulation",
-    country: g.country || "Unknown",
-    risk: ["high", "medium", "low"].includes(g.risk) ? g.risk : "medium",
-    title: g.title || g.regulation || "Grey area",
-    description: g.description || "",
-    exploitation: g.exploitation || "",
-    recommendation: g.recommendation || "",
-  }))
-  const riskScore = typeof parsed.riskScore === "number" ? Math.min(100, Math.max(0, parsed.riskScore)) : 50
-
-  return {
-    riskScore,
-    summary: parsed.summary || "",
-    greyAreas,
-    defenses: Array.isArray(parsed.defenses) ? parsed.defenses : [],
-    upcoming: Array.isArray(parsed.upcoming) ? parsed.upcoming : [],
   }
 }
