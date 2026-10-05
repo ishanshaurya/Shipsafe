@@ -9,7 +9,7 @@ import RepoImport from "../github-import/RepoImport"
 import CodePanel, { FixPanel, CodeSnippet } from "../../shared/components/CodePanel"
 import Finding, { Detail } from "../../shared/components/Finding"
 import VerdictBanner from "../../shared/components/VerdictBanner"
-import Notice from "../../shared/components/Notice"
+import Notice from "../../shared/ui/Notice"
 import { scoreVerdict, severityVerdict } from "../../shared/verdict"
 
 const LANGS = ["JavaScript","TypeScript","Python","Java","Go","Rust","C++","PHP","Ruby","SQL"]

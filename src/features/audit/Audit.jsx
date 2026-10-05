@@ -10,7 +10,7 @@ import CodePanel, { FixPanel } from "../../shared/components/CodePanel"
 import Finding from "../../shared/components/Finding"
 import Flag from "../../shared/components/Flag"
 import VerdictBanner from "../../shared/components/VerdictBanner"
-import Notice from "../../shared/components/Notice"
+import Notice from "../../shared/ui/Notice"
 import { scoreVerdict, severityVerdict } from "../../shared/verdict"
 
 /* ═══════════════════════════════════════════════════════════

@@ -257,3 +257,11 @@ textarea.field { resize: vertical; line-height: 1.55; }
   .shell-rail.open { visibility: visible; transition: transform var(--dur-base) var(--ease-out); }
   .shell-close { display: inline-flex; margin-left: auto; margin-right: 8px; }
 }
+
+/* Badge and progress (src/shared/ui) */
+.badge { font-size: 14px; color: var(--color-muted); }
+.badge-error { color: var(--color-pennant-red-text); }
+.progress-steps { list-style: none; display: flex; flex-wrap: wrap; gap: 8px 16px; font-size: 14px; color: var(--color-muted); }
+.progress-steps li.done::before { content: "\2713\00a0"; }
+.progress-steps li.now { color: var(--color-ink); font-weight: 600; }
+.progress-steps li.now::before { content: "\2192\00a0"; }

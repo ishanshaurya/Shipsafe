@@ -8,7 +8,7 @@ import { computeShipReadiness } from "./shipReadiness"
 import { scanVerdict, scoreVerdict, VERDICT_WORD } from "../../shared/verdict"
 import { TOOL_GROUPS } from "../../shared/toolRegistry"
 import Flag from "../../shared/components/Flag"
-import Notice from "../../shared/components/Notice"
+import Notice from "../../shared/ui/Notice"
 
 /* ═══════════════════════════════════════════════════════════
    DASHBOARD — ship-readiness, per-tool scores, recent scans.

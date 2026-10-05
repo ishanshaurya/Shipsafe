@@ -5,7 +5,7 @@ import { mockRegulationResult } from "./mockRegulation"
 import { severityVerdict, VERDICT_WORD } from "../../shared/verdict"
 import Finding, { Detail } from "../../shared/components/Finding"
 import Flag from "../../shared/components/Flag"
-import Notice from "../../shared/components/Notice"
+import Notice from "../../shared/ui/Notice"
 
 /* ═══════════════════════════════════════════════════════════
    AI REGULATIONS

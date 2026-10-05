@@ -9,7 +9,7 @@
 import { useState } from "react"
 import { Loader2 } from "lucide-react"
 import { useReport } from "./useReport"
-import Notice from "../../shared/components/Notice"
+import Notice from "../../shared/ui/Notice"
 
 export default function ReportButton({ scanType, title, resultData }) {
   const { generating, reportUrl, reportError, generateReport } = useReport()

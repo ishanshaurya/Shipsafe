@@ -6,7 +6,7 @@ import ReportButton from "../reports/ReportButton"
 import NextSteps from "../scan/NextSteps"
 import Finding, { Detail } from "../../shared/components/Finding"
 import VerdictBanner from "../../shared/components/VerdictBanner"
-import Notice from "../../shared/components/Notice"
+import Notice from "../../shared/ui/Notice"
 import { scoreVerdict, severityVerdict } from "../../shared/verdict"
 
 /* ═══════════════════════════════════════════════════════════

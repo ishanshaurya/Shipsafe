@@ -1,6 +1,6 @@
 import { useId } from "react"
 import { Loader2 } from "lucide-react"
-import Notice from "../../shared/components/Notice"
+import Notice from "../../shared/ui/Notice"
 
 const formatSize = (bytes) => (bytes < 1024 ? `${bytes} B` : `${(bytes / 1024).toFixed(1)} KB`)
 
