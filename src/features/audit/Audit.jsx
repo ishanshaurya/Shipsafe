@@ -241,7 +241,7 @@ export default function Audit() {
         </div>
 
         {/* Result */}
-        <div aria-live="polite" aria-busy={loading}>
+        <div aria-live="polite">
           {!loading && !result && (
             <EmptyState
               title="Paste your project to audit"

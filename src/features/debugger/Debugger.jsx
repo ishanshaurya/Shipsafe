@@ -187,7 +187,7 @@ export default function Debugger() {
         </div>
 
         {/* Result */}
-        <div aria-live="polite" aria-busy={loading}>
+        <div aria-live="polite">
           {!loading && !result && !error && (
             <EmptyState
               title="Paste code to review"

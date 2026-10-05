@@ -1,11 +1,18 @@
 import { useState } from "react"
-import { Check, ChevronRight, Loader2 } from "lucide-react"
+import { Check, ChevronRight } from "lucide-react"
 import { fetchRegulations } from "./regulationsService"
 import { mockRegulationResult } from "./mockRegulation"
 import { severityVerdict, VERDICT_WORD } from "../../shared/verdict"
 import Finding, { Detail } from "../../shared/components/Finding"
 import Flag from "../../shared/components/Flag"
-import Notice from "../../shared/ui/Notice"
+import Button from "../../shared/ui/Button"
+import Card from "../../shared/ui/Card"
+import EmptyState from "../../shared/ui/EmptyState"
+import ErrorState from "../../shared/ui/ErrorState"
+import Field from "../../shared/ui/Field"
+import Progress from "../../shared/ui/Progress"
+import { SkeletonLines } from "../../shared/ui/Skeleton"
+import { useProgressStep } from "../../shared/ui/useProgressStep"
 
 /* ═══════════════════════════════════════════════════════════
    AI REGULATIONS
@@ -103,6 +110,8 @@ function CoverageList({ title, items, muted }) {
   )
 }
 
+const SEARCH_STEPS = ["Connecting", "Analysing laws and drafts", "Building checklist"]
+
 // ─── Page ─────────────────────────────────────────────────
 
 export default function Regulations() {
@@ -115,6 +124,7 @@ export default function Regulations() {
   const [copied, setCopied] = useState(false)
 
   const toggle = (id) => setExp(p => ({ ...p, [id]: !p[id] }))
+  const step = useProgressStep(loading, SEARCH_STEPS.length)
 
   const runSearch = async (overrideTopic) => {
     const q = (overrideTopic ?? query).trim()
@@ -165,18 +175,12 @@ export default function Regulations() {
       </header>
 
       <form onSubmit={handleSubmit} style={{ marginBottom: 16, maxWidth: 720 }} role="search">
-        <label className="label" htmlFor="reg-q">Search regulations</label>
-        <div className="field-row">
-          <input
-            id="reg-q" className="field" value={query}
-            onChange={e => { setQuery(e.target.value); setActiveTopic(null) }}
-            placeholder="For example: facial recognition, healthcare AI, GDPR"
-          />
-          <button type="submit" className="btn btn-primary" disabled={!query.trim() || loading}>
-            {loading && <Loader2 size={16} className="spin" aria-hidden="true" />}
-            Search
-          </button>
-        </div>
+        <Field
+          id="reg-q" label="Search regulations" value={query}
+          onChange={e => { setQuery(e.target.value); setActiveTopic(null) }}
+          placeholder="For example: facial recognition, healthcare AI, GDPR"
+          action={<Button type="submit" loading={loading} disabled={!query.trim()}>Search</Button>}
+        />
       </form>
 
       <div className="inline" role="group" aria-label="Example topics" style={{ marginBottom: 48 }}>
@@ -187,22 +191,20 @@ export default function Regulations() {
         ))}
       </div>
 
-      <div aria-live="polite" aria-busy={loading}>
+      <div aria-live="polite">
         {loading && (
-          <section className="panel panel-pad stack" style={{ marginBottom: 48 }}>
+          <Card as="section" pad className="stack" style={{ marginBottom: 48 }}>
             <div className="h3">Searching regulations</div>
-            <p className="muted">Checking enacted laws, drafts and country coverage</p>
-            <div className="skel" style={{ width: "100%" }} />
-            <div className="skel" style={{ width: "85%" }} />
-            <div className="skel" style={{ width: "70%" }} />
-          </section>
+            <Progress steps={SEARCH_STEPS} current={step} />
+            <SkeletonLines label="Checking enacted laws, drafts and country coverage" />
+          </Card>
         )}
 
         {!loading && error && results && (
           <div style={{ marginBottom: 24 }}>
-            <Notice tone="error" title="Showing sample data because the live lookup failed">
-              These results are for Deepfakes, not your search. Search again to retry.
-            </Notice>
+            <ErrorState title="Showing sample data because the live lookup failed" onRetry={() => runSearch(query)}>
+              These results are for Deepfakes, not your search.
+            </ErrorState>
           </div>
         )}
 
@@ -210,11 +212,15 @@ export default function Regulations() {
           <div className="stack" style={{ gap: 48, marginBottom: 48 }}>
             <section>
               <h2 className="h2" style={{ marginBottom: 8 }}>Regulations for {results.topic || query}</h2>
-              <ul className="ledger">
-                {results.regulations.map((reg, i) => (
-                  <RegulationRow key={i} reg={reg} open={!!exp[`r${i}`]} toggle={() => toggle(`r${i}`)} />
-                ))}
-              </ul>
+              {results.regulations.length === 0 ? (
+                <EmptyState title="No regulations found">Try a broader topic, or pick one of the example topics above.</EmptyState>
+              ) : (
+                <ul className="ledger">
+                  {results.regulations.map((reg, i) => (
+                    <RegulationRow key={i} reg={reg} open={!!exp[`r${i}`]} toggle={() => toggle(`r${i}`)} />
+                  ))}
+                </ul>
+              )}
             </section>
 
             {results.overall_severity && (

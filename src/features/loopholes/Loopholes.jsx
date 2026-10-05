@@ -158,7 +158,7 @@ export default function Loopholes() {
         </div>
 
         {/* Result */}
-        <div aria-live="polite" aria-busy={loading}>
+        <div aria-live="polite">
           {!loading && !result && (
             <EmptyState title="Describe your AI system">
               Pick at least one country. You get grey areas ranked by risk, how each could be exploited, and the defenses to put in place.
