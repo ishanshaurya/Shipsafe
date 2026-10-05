@@ -32,3 +32,4 @@ backend/__pycache__/
 *.pyc
 .vercel
 backend/.env
+test-results/

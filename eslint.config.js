@@ -8,7 +8,7 @@ export default defineConfig([
   globalIgnores(['dist']),
   {
     files: ['**/*.{js,jsx}'],
-    ignores: ['api/**'],
+    ignores: ['api/**', 'e2e/**'],
     extends: [
       js.configs.recommended,
       reactHooks.configs.flat.recommended,
@@ -31,6 +31,15 @@ export default defineConfig([
       // rewriting it risks a UI regression. Tracked as a warning rather
       // than silenced outright.
       'react-hooks/set-state-in-effect': 'warn',
+    },
+  },
+  {
+    files: ['e2e/**/*.js'],
+    extends: [js.configs.recommended],
+    languageOptions: {
+      ecmaVersion: 'latest',
+      sourceType: 'module',
+      globals: globals.node,
     },
   },
   {
