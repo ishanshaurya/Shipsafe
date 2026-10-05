@@ -2,7 +2,7 @@ import { useState } from "react"
 import { Check, Loader2 } from "lucide-react"
 import { runScan } from "../scan/scanRun"
 import { useAuth } from "../auth/useAuth"
-import { importRepo, listRepoFiles, fetchRepoFiles } from "../github-import/githubImport"
+import { useRepoImport } from "../github-import/useRepoImport"
 import ReportButton from "../reports/ReportButton"
 import NextSteps from "../scan/NextSteps"
 import RepoImport from "../github-import/RepoImport"
@@ -149,56 +149,17 @@ export default function Audit() {
   const [suggestions, setSuggestions] = useState([])
   const [exp, setExp] = useState({})
   const [filter, setFilter] = useState("all")
-  const [githubUrl, setGithubUrl] = useState("")
-  const [githubLoading, setGithubLoading] = useState(false)
-  const [githubInfo, setGithubInfo] = useState(null)
-  const [githubError, setGithubError] = useState(null)
-  // File picker state
-  const [fileList, setFileList] = useState(null)
-  const [selectedFiles, setSelectedFiles] = useState([])
-  const [filePickRepo, setFilePickRepo] = useState(null)
 
   const toggle = (id) => setExp(p => ({ ...p, [id]: !p[id] }))
 
-  // Quick scan: one-step auto-select + fetch + auto-audit
-  const fetchFromGitHub = async () => {
-    if (!githubUrl.trim() || githubLoading) return
-    setGithubLoading(true); setGithubError(null); setGithubInfo(null); setFileList(null)
-    const { data, error: importError } = await importRepo(githubUrl)
-    setGithubLoading(false)
-    if (importError) { setGithubError(importError); return }
-    setCode(data.code)
-    setGithubInfo(data)
-    setResult(null); setExp({})
-    // Auto-run audit after fetching
-    setTimeout(() => runAuditWithCode(data.code), 50)
-  }
-
-  // Step 1: Fetch file tree only (list mode)
-  const fetchFileList = async () => {
-    if (!githubUrl.trim() || githubLoading) return
-    setGithubLoading(true); setGithubError(null); setGithubInfo(null); setFileList(null)
-    const { data, error: listError } = await listRepoFiles(githubUrl)
-    setGithubLoading(false)
-    if (listError) { setGithubError(listError); return }
-    setFileList(data.files)
-    setFilePickRepo(data.repo)
-    setSelectedFiles(data.files.filter(f => f.autoSelected).map(f => f.path))
-  }
-
-  // Step 3: Fetch only selected files then auto-audit
-  const fetchSelectedFiles = async () => {
-    if (!selectedFiles.length || githubLoading) return
-    setGithubLoading(true); setGithubError(null)
-    const { data, error: fetchError } = await fetchRepoFiles(githubUrl, selectedFiles)
-    setGithubLoading(false)
-    if (fetchError) { setGithubError(fetchError); return }
-    setCode(data.code)
-    setGithubInfo(data)
-    setFileList(null)
-    setResult(null); setExp({})
-    setTimeout(() => runAuditWithCode(data.code), 50)
-  }
+  // Importing a repo audits it straight away.
+  const { repoProps } = useRepoImport({
+    onImported: (data) => {
+      setCode(data.code)
+      setResult(null); setExp({})
+      setTimeout(() => runAuditWithCode(data.code), 50)
+    },
+  })
 
   const runAuditWithCode = async (codeToAudit) => {
     if (!codeToAudit?.trim() || loading) return
@@ -242,22 +203,9 @@ export default function Audit() {
         {/* Input */}
         <div className="stack" style={{ gap: 20 }}>
           <RepoImport
-            url={githubUrl}
-            onUrl={(v) => { setGithubUrl(v); setGithubError(null); setFileList(null) }}
-            onChoose={fetchFileList}
-            onQuick={fetchFromGitHub}
+            {...repoProps}
             quickLabel="Import recommended files and audit now"
             scanLabel="Audit selected files"
-            loading={githubLoading}
-            fileList={fileList}
-            selected={selectedFiles}
-            onSelected={setSelectedFiles}
-            repo={filePickRepo}
-            onScan={fetchSelectedFiles}
-            onCancel={() => setFileList(null)}
-            error={githubError}
-            onDismissError={() => setGithubError(null)}
-            info={githubInfo}
           />
 
           <div>

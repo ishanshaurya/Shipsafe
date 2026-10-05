@@ -1,64 +1,16 @@
 import { verifyUser } from "./_lib/auth.js"
+import { checkRateLimit } from "./_lib/rateLimit.js"
+import { validateGeminiBody } from "./_lib/validate.js"
+import {
+  configuredProviders,
+  orderedProviders,
+  generateWithFallback,
+  streamProvider,
+  markCooldown,
+  cooldownFor,
+} from "./_lib/providers.js"
 
-const ALLOWED_TOOLS = new Set(["debugger", "audit", "loopholes", "regulations"])
-
-const RATE_LIMIT_WINDOW_MS = 60_000
 const RATE_LIMIT_MAX = 20 // raised from 10 — 4 providers pooled behind this now, not 1
-
-// Real model context windows here are all well over 1M chars — this cap is
-// just a sane upper bound on what a single review should ever need to see.
-const MAX_INPUT_CHARS = 300_000
-
-// ── Provider pool ────────────────────────────────────────────────────
-// Every provider exposes an OpenAI-compatible /chat/completions endpoint
-// except Gemini, which gets its own caller. Requests round-robin across
-// whichever providers are configured (have an env key) and not currently
-// in cooldown, then fall through to the next on failure — so one
-// provider's rate limit doesn't fail the request, it just shifts load.
-//
-// Cooldown state is in-memory (per warm serverless instance) — good
-// enough to stop hammering a limited/misconfigured key within a burst,
-// resets on cold start.
-const PROVIDERS = [
-  { name: "gemini", envKey: "GEMINI_API_KEY" },
-  { name: "groq", envKey: "GROQ_API_KEY", baseUrl: "https://api.groq.com/openai/v1", model: "openai/gpt-oss-120b" },
-  { name: "cerebras", envKey: "CEREBRAS_API_KEY", baseUrl: "https://api.cerebras.ai/v1", model: "gpt-oss-120b" },
-  { name: "sambanova", envKey: "SAMBANOVA_API_KEY", baseUrl: "https://api.sambanova.ai/v1", model: "Meta-Llama-3.3-70B-Instruct" },
-]
-
-const cooldowns = new Map() // provider name -> timestamp (ms) until which to skip it
-let rotor = 0
-
-function configuredProviders() {
-  return PROVIDERS.filter((p) => !!process.env[p.envKey])
-}
-
-function availableProviders() {
-  const now = Date.now()
-  return configuredProviders().filter((p) => (cooldowns.get(p.name) || 0) < now)
-}
-
-function markCooldown(name, ms) {
-  cooldowns.set(name, Date.now() + ms)
-}
-
-// Cooldown length depends on why the provider failed: a rate limit clears
-// fast, a bad/missing key or bad request won't fix itself soon.
-function cooldownFor(status) {
-  if (status === 429) return 60_000
-  if (status >= 500) return 15_000
-  return 10 * 60_000 // 401/403/400 — likely a config problem, back off longer
-}
-
-// Rotates the starting provider each call so load spreads across the pool
-// instead of always hitting the same one first.
-function orderedProviders() {
-  const avail = availableProviders()
-  if (avail.length === 0) return []
-  const start = rotor % avail.length
-  rotor++
-  return [...avail.slice(start), ...avail.slice(0, start)]
-}
 
 const SYSTEM_PROMPTS = {
   debugger: `You are ShipSafe AI Debugger — an expert code reviewer that finds bugs, security vulnerabilities, and "vibe-code" smells.
@@ -159,79 +111,6 @@ Rules:
   regulations: `You are a global AI regulation expert. Return ONLY valid JSON, no markdown, no backticks, no explanation. Only include regulations you are confident are real. If unsure, omit it. Return maximum 4 regulations. Each summary max 2 sentences. Checklist max 4 items. Checklist items must be actionable and testable (e.g. 'Add watermark to AI-generated media'), never generic advice like 'ensure compliance'.`,
 }
 
-// ── Non-streaming callers ───────────────────────────────────────────
-// Each throws { status, message } on failure so the pool can decide the
-// right cooldown and move to the next provider.
-
-async function callGemini(systemPrompt, userPrompt, apiKey) {
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`
-  const body = JSON.stringify({
-    system_instruction: { parts: [{ text: systemPrompt }] },
-    contents: [{ parts: [{ text: userPrompt }] }],
-    generationConfig: { temperature: 0.1, maxOutputTokens: 8192 },
-  })
-  const response = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body })
-  if (!response.ok) {
-    const errText = await response.text().catch(() => "")
-    throw { status: response.status, message: `Gemini returned ${response.status}: ${errText.slice(0, 200)}` }
-  }
-  const data = await response.json()
-  const content = data.candidates?.[0]?.content?.parts?.[0]?.text
-  if (!content) throw { status: 502, message: "Gemini returned empty response" }
-  return content
-}
-
-async function callOpenAICompatible(provider, systemPrompt, userPrompt, apiKey) {
-  const response = await fetch(`${provider.baseUrl}/chat/completions`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
-    body: JSON.stringify({
-      model: provider.model,
-      temperature: 0.1,
-      max_tokens: 8192,
-      response_format: { type: "json_object" },
-      messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: userPrompt },
-      ],
-    }),
-  })
-  if (!response.ok) {
-    const errText = await response.text().catch(() => "")
-    throw { status: response.status, message: `${provider.name} returned ${response.status}: ${errText.slice(0, 200)}` }
-  }
-  const data = await response.json()
-  const content = data.choices?.[0]?.message?.content
-  if (!content) throw { status: 502, message: `${provider.name} returned empty response` }
-  return content
-}
-
-async function callProvider(provider, systemPrompt, userPrompt) {
-  const apiKey = process.env[provider.envKey]
-  if (provider.name === "gemini") return callGemini(systemPrompt, userPrompt, apiKey)
-  return callOpenAICompatible(provider, systemPrompt, userPrompt, apiKey)
-}
-
-// Tries providers in rotation order, falling through on failure. Only
-// throws once every configured provider has failed or is cooling down.
-async function generateWithFallback(systemPrompt, userPrompt) {
-  const order = orderedProviders()
-  if (order.length === 0) throw { status: 503, message: "All providers are unavailable or unconfigured" }
-
-  let lastErr
-  for (const provider of order) {
-    try {
-      const content = await callProvider(provider, systemPrompt, userPrompt)
-      return { content, provider: provider.name }
-    } catch (err) {
-      lastErr = err
-      markCooldown(provider.name, cooldownFor(err.status))
-      console.error(`[gemini] provider "${provider.name}" failed:`, err.status, err.message)
-    }
-  }
-  throw lastErr
-}
-
 export default async function handler(req, res) {
   // ── CORS — locked to production origin only ──
   res.setHeader("Access-Control-Allow-Origin", "https://shipsafe-app.vercel.app")
@@ -253,37 +132,17 @@ export default async function handler(req, res) {
   const { user, supabase } = await verifyUser(req)
   if (!user) return res.status(401).json({ error: "Sign in required" })
 
-  // ── Rate limiting — 10 requests per 60-second window, per user,
-  //    persisted in Postgres so it survives cold starts and can't be
-  //    dodged by rotating IPs ──
-  const windowStart = new Date(Math.floor(Date.now() / RATE_LIMIT_WINDOW_MS) * RATE_LIMIT_WINDOW_MS).toISOString()
-  const { data: requestCount, error: rateLimitError } = await supabase.rpc("increment_rate_limit", {
-    p_window_start: windowStart,
-  })
-  if (rateLimitError) {
-    console.error("Rate limit check failed:", rateLimitError)
-    return res.status(500).json({ error: "Rate limit check failed" })
-  }
-  if (requestCount > RATE_LIMIT_MAX) {
-    return res.status(429).json({ error: "Rate limit exceeded. Try again in 60 seconds." })
-  }
+  // ── Rate limiting — per user, persisted in Postgres so it survives cold
+  //    starts and can't be dodged by rotating IPs ──
+  const limit = await checkRateLimit(supabase, { bucket: "gemini", max: RATE_LIMIT_MAX })
+  if (!limit.ok) return res.status(limit.status).json({ error: limit.error })
 
   if (configuredProviders().length === 0) return res.status(500).json({ error: "Service unavailable" })
 
   // ── Parse and validate request body ──
-  const { tool, userPrompt, stream } = req.body
-
-  if (!tool || !ALLOWED_TOOLS.has(tool)) {
-    return res.status(400).json({ error: "Invalid tool" })
-  }
-
-  if (!userPrompt || typeof userPrompt !== "string") {
-    return res.status(400).json({ error: "userPrompt is required" })
-  }
-
-  if (userPrompt.length > MAX_INPUT_CHARS) {
-    return res.status(400).json({ error: "Input too large" })
-  }
+  const body = validateGeminiBody(req.body)
+  if (body.error) return res.status(400).json({ error: body.error })
+  const { tool, userPrompt, stream } = body
 
   // ── System prompt selected server-side — never from the client ──
   const systemPrompt = SYSTEM_PROMPTS[tool]
@@ -322,75 +181,4 @@ export default async function handler(req, res) {
       // not last — loop tries the next provider, nothing has been written yet
     }
   }
-}
-
-async function streamProvider(provider, systemPrompt, userPrompt, res) {
-  const apiKey = process.env[provider.envKey]
-
-  const upstream =
-    provider.name === "gemini"
-      ? await fetch(
-          `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:streamGenerateContent?alt=sse&key=${apiKey}`,
-          {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              system_instruction: { parts: [{ text: systemPrompt }] },
-              contents: [{ parts: [{ text: userPrompt }] }],
-              generationConfig: { temperature: 0.1, maxOutputTokens: 8192 },
-            }),
-          }
-        )
-      : await fetch(`${provider.baseUrl}/chat/completions`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
-          body: JSON.stringify({
-            model: provider.model,
-            temperature: 0.1,
-            max_tokens: 8192,
-            stream: true,
-            messages: [
-              { role: "system", content: systemPrompt },
-              { role: "user", content: userPrompt },
-            ],
-          }),
-        })
-
-  if (!upstream.ok) {
-    const errText = await upstream.text().catch(() => "")
-    throw { status: upstream.status, message: `${provider.name} returned ${upstream.status}: ${errText.slice(0, 200)}` }
-  }
-
-  res.setHeader("Content-Type", "text/event-stream")
-  res.setHeader("Cache-Control", "no-cache")
-  res.setHeader("X-Accel-Buffering", "no")
-
-  const extractChunk =
-    provider.name === "gemini"
-      ? (parsed) => parsed.candidates?.[0]?.content?.parts?.[0]?.text
-      : (parsed) => parsed.choices?.[0]?.delta?.content
-
-  const reader = upstream.body.getReader()
-  const decoder = new TextDecoder()
-  let buffer = ""
-
-  while (true) {
-    const { done, value } = await reader.read()
-    if (done) break
-    buffer += decoder.decode(value, { stream: true })
-    const lines = buffer.split("\n")
-    buffer = lines.pop()
-    for (const line of lines) {
-      if (!line.startsWith("data: ")) continue
-      const jsonStr = line.slice(6).trim()
-      if (!jsonStr || jsonStr === "[DONE]") continue
-      try {
-        const chunk = extractChunk(JSON.parse(jsonStr))
-        if (chunk) res.write(`data: ${JSON.stringify({ chunk })}\n\n`)
-      } catch {}
-    }
-  }
-
-  res.write("data: [DONE]\n\n")
-  res.end()
 }

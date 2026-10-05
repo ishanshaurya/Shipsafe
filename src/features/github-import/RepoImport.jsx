@@ -8,7 +8,7 @@ function Busy({ loading, children }) {
   return loading ? <><Loader2 size={16} className="spin" aria-hidden="true" /> {children}</> : children
 }
 
-// GitHub import with the two-step file picker. Shared by Debugger and Audit; each page keeps its own fetch logic.
+// GitHub import with the two-step file picker. Shared by Debugger and Audit; state comes from useRepoImport.
 export default function RepoImport({
   url, onUrl, onChoose, onQuick, quickLabel, scanLabel,
   loading, fileList, selected, onSelected, repo, onScan, onCancel,

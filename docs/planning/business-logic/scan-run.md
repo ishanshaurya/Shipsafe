@@ -19,7 +19,7 @@ Findings from reading the code (what the plan is based on):
 - [x] Decide: where similar-scans lookup lives. Proposal: `findSimilarScans(result, user)` exported from the same module.
 
 ### Phase 1 — Build the module with tests (no page changes)
-- [x] Write `scanRun.js`: tool check → `callAI` / `callAIStream` → normalize → `extractScore` → `getSuggestions` → `saveScan`.
+- [x] Write `scanRun.js`: tool check → `callAI` / `callAIStream` → normalize → score → suggestions → `saveScan` (score and suggestions now come from each tool's module).
 - [x] Tests (mock `callAI`, `saveScan`): success returns result+score+suggestions; AI error returns `{error}` and does not save; no user → no save; save failure is logged, not thrown.
 - [x] Move debugger embed (`attachEmbedding`) + `findSimilarScans` behind it, tested.
 
@@ -38,4 +38,4 @@ Findings from reading the code (what the plan is based on):
 - [x] Split `supabaseService.js` by domain next to its feature (refactor item 4, data half): `scanHistory`, `reportService`, `shared/authHeader`.
 
 ## Next: one module per tool (refactor item 3)
-- [ ] `debugger`, `audit`, `loopholes` (and later `deploy-check`, `stress-test`) each own prompt, normalize, score, suggestions, label; the shared scan run consumes them. Starts after phases 2–3 above.
+- [x] `debugger`, `audit`, `loopholes` each own prompt, validate, normalize, score and suggestions in `src/features/<tool>/<tool>Tool.js`; `scanRun` and `scanService` consume them via `features/scan/toolModules.js`. Label stays in `shared/toolRegistry`. Adding a later tool (`deploy-check`, `stress-test`) means one module plus one registry line.

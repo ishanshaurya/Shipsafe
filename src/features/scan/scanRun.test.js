@@ -51,6 +51,14 @@ describe("runScan", () => {
     )
   })
 
+  it("passes content through with no score or suggestions for a tool without a module", async () => {
+    callAI.mockResolvedValue({ content: { topic: "gdpr" }, error: null })
+
+    const out = await runScan({ tool: "regulations", payload: {}, user: null })
+
+    expect(out).toEqual({ result: { topic: "gdpr" }, score: null, suggestions: [], error: null })
+  })
+
   it("returns the error and does not save when the AI call fails", async () => {
     callAI.mockResolvedValue({ content: null, error: "boom" })
 

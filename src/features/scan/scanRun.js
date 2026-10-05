@@ -3,31 +3,10 @@
 // One scan, start to finish: call AI → normalize → score → suggestions → save.
 // Pages keep only UI state (loading / result / expand) and per-tool auto-expand rules.
 
-import {
-  callAI,
-  callAIStream,
-  extractScore,
-  normalizeAuditResult,
-  normalizeLoopholesResult,
-} from "./scanService.js"
+import { callAI, callAIStream } from "./scanService.js"
+import { TOOL_MODULES } from "./toolModules.js"
 import { saveScan, attachEmbedding, embeddingText } from "./scanHistory.js"
 import { authHeader } from "../../shared/authHeader.js"
-import { getSuggestions } from "./crossToolSuggestions.js"
-
-// Tools without an entry keep the validated AI shape as-is.
-const NORMALIZERS = {
-  audit: (content) => normalizeAuditResult(content),
-  loopholes: (content) => normalizeLoopholesResult(content),
-}
-
-// Which payload field is the human-readable input stored in scan_history.
-const INPUT_FIELD = {
-  debugger: "code",
-  audit: "files",
-  loopholes: "systemDescription",
-}
-
-const EMBEDDED_TOOLS = new Set(["debugger"])
 
 /**
  * @param {object} opts
@@ -44,12 +23,12 @@ export async function runScan({ tool, payload, user, stream = false, onChunk }) 
     : await callAI(tool, payload)
   if (error) return { result: null, score: null, suggestions: [], error }
 
-  const normalize = NORMALIZERS[tool]
-  const result = normalize ? normalize(content, payload) : content
-  const score = extractScore(tool, result)
-  const suggestions = getSuggestions(tool, result)
+  const mod = TOOL_MODULES[tool]
+  const result = mod?.normalize ? mod.normalize(content, payload) : content
+  const score = mod?.score(result) ?? null
+  const suggestions = mod?.suggest(result) ?? []
 
-  if (user) persistScan(user.id, tool, payload[INPUT_FIELD[tool]], result, score)
+  if (user) persistScan(user.id, tool, payload[mod?.inputField], result, score)
 
   return { result, score, suggestions, error: null }
 }
@@ -62,7 +41,7 @@ async function persistScan(userId, tool, input, result, score) {
     return
   }
   const scanId = data?.[0]?.id
-  if (scanId && EMBEDDED_TOOLS.has(tool)) attachEmbedding(scanId, tool, result)
+  if (scanId && TOOL_MODULES[tool]?.embedded) attachEmbedding(scanId, tool, result)
 }
 
 /**

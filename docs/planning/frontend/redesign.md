@@ -32,7 +32,7 @@ Decisions already made: light theme · F1–F2 first · tool-page restyle (F6) w
 
 ## F2. Deep modules + primitives  _(shared primitives in `src/shared/components/`)_
 - [ ] **Verdict module** (candidate 1, Strong): one owner for score → cleared/held/blocked and severity → tone/label/shape. Replaces 7 private maps: `Debugger.jsx:22`, `Report.jsx:29`, `Regulations.jsx:73`, `Audit.jsx:138`, `NextSteps.jsx:10`, `ScoreRing` thresholds, `shipReadiness.js:107`. Label + shape ship with color (not color alone). Unit-test the thresholds (80 / 60 / 40).
-- [ ] **Tool registry module** (candidate 2, Strong): the four tools with group (Code review / AI regulation), path, name, one-line purpose, icon. Replaces `Layout.jsx:9` NAV, `Landing.jsx:6` FEATURES, `Dashboard.jsx:19` actions; check `crossToolSuggestions.js`. Keep separate from item 3 (prompt/scoring per tool) or merge deliberately.
+- [ ] **Tool registry module** (candidate 2, Strong): the four tools with group (Code review / AI regulation), path, name, one-line purpose, icon. Replaces `Layout.jsx:9` NAV, `Landing.jsx:6` FEATURES, `Dashboard.jsx:19` actions; (next-step rules now live in each tool module). Keep separate from item 3 (prompt/scoring per tool) or merge deliberately.
 - [ ] Restyle `ScoreRing`: keep props (5 callers), default colors from the Verdict module, stencil number.
 - [ ] `Button` (primary/secondary/ghost, sizes, Link support, loading), `Field` (Input/Textarea, label, focus, error). Only primitives that hide behavior.
 - [ ] `Badge` (verdict or neutral) — replaces repeated `tag-pill` styling.

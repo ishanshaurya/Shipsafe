@@ -48,7 +48,8 @@ Sync point 1: all three lanes green. Integrator merges A, B, C into `redesign/ma
 ### Wave 2: structure
 **A, phase A2: feature folders.** `src/features/{scan,tools,github-import,regulations,reports,auth,dashboard,landing}/`, `src/shared/`, `src/app/` (refactor-sequence item 6), one tool module per tool (item 3), split `supabaseService.js` by domain (item 4). Add an error boundary. Move in small commits, one folder at a time, gate green after each.
 - Done when: no behavior change (e2e green), no file over about 400 lines, no page imports Supabase or calls `fetch("/api")`.
-- Status: Done, commits dc92623 / 9a68b9f / fe560e8, gate green. Item 3 (one module per tool) not done.
+- Status: Done, commits dc92623 / 9a68b9f / fe560e8, gate green. Item 3 (one module per tool) was left for the Wave 2 follow-up below.
+- Wave 2 follow-up (A2 leftovers): Done, one module per tool (Debugger, Audit, Loophole Finder; Regulations already has `regulationsService`) and shared `useRepoImport`, gate green.
 
 **B, phase B2: API layer.** Split `api/_lib/` into `auth.js`, `rateLimit.js`, `providers.js`, `validate.js`. Add rate limits to `/api/embed` and `/api/github` using the same `increment_rate_limit` function with separate buckets (new migration, applied by you). Add API tests in `tests/api/` with mocked `fetch`: 401, 400, 429, provider failover, SSE framing, embed ownership filter, GitHub name validation. B holds the dependency baton.
 - Done when: contracts unchanged (a contract test replays every example in CONTRACTS.md), tests cover each error code, gate green.
