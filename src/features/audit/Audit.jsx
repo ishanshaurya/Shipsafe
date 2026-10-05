@@ -1,5 +1,5 @@
 import { useState } from "react"
-import { Check, Loader2 } from "lucide-react"
+import { Check } from "lucide-react"
 import { runScan } from "../scan/scanRun"
 import { useAuth } from "../auth/useAuth"
 import { useRepoImport } from "../github-import/useRepoImport"
@@ -10,7 +10,13 @@ import CodePanel, { FixPanel } from "../../shared/components/CodePanel"
 import Finding from "../../shared/components/Finding"
 import Flag from "../../shared/components/Flag"
 import VerdictBanner from "../../shared/components/VerdictBanner"
-import Notice from "../../shared/ui/Notice"
+import Button from "../../shared/ui/Button"
+import Card from "../../shared/ui/Card"
+import EmptyState from "../../shared/ui/EmptyState"
+import ErrorState from "../../shared/ui/ErrorState"
+import Progress from "../../shared/ui/Progress"
+import { SkeletonLines } from "../../shared/ui/Skeleton"
+import { useProgressStep } from "../../shared/ui/useProgressStep"
 import { scoreVerdict, severityVerdict } from "../../shared/verdict"
 
 /* ═══════════════════════════════════════════════════════════
@@ -33,6 +39,8 @@ const CATEGORIES = [
   { key: "aiPatterns", label: "AI patterns", desc: "Hallucinated imports, copy-paste blocks, missing tests" },
   { key: "deployReady", label: "Deploy readiness", desc: "Env vars, error boundaries, build config, monitoring" },
 ]
+
+const AUDIT_STEPS = ["Reading files", "Scoring five categories", "Writing report"]
 
 const SEVERITY_ORDER = { critical: 0, high: 1, medium: 2, low: 3 }
 const cap = (w) => w.charAt(0).toUpperCase() + w.slice(1)
@@ -151,6 +159,7 @@ export default function Audit() {
   const [filter, setFilter] = useState("all")
 
   const toggle = (id) => setExp(p => ({ ...p, [id]: !p[id] }))
+  const step = useProgressStep(loading, AUDIT_STEPS.length)
 
   // Importing a repo audits it straight away.
   const { repoProps } = useRepoImport({
@@ -222,34 +231,32 @@ export default function Audit() {
           </div>
 
           <div className="stack" style={{ gap: 12 }}>
-            <button type="button" className="btn btn-primary btn-block" onClick={runAudit} disabled={loading || !code.trim()}>
-              {loading && <Loader2 size={16} className="spin" aria-hidden="true" />}
-              Run audit
-            </button>
-            {error && <Notice tone="error" title="Audit failed" onDismiss={() => setError(null)}>{error} Your files are still here. Run the audit again.</Notice>}
+            <Button block onClick={runAudit} loading={loading} disabled={!code.trim()}>Run audit</Button>
+            {error && (
+              <ErrorState title="Audit failed" onRetry={runAudit} onDismiss={() => setError(null)}>
+                {error} Your files are still here.
+              </ErrorState>
+            )}
           </div>
         </div>
 
         {/* Result */}
         <div aria-live="polite" aria-busy={loading}>
           {!loading && !result && (
-            <div className="panel empty">
-              <h2 className="h2">Paste your project to audit</h2>
-              <p>You get a verdict plus a score for security, code quality, maintainability, AI patterns and deploy readiness.</p>
-              <div>
-                <button type="button" className="btn btn-secondary" onClick={() => { setCode(SAMPLE_PROJECT); setResult(null) }}>Load sample project</button>
-              </div>
-            </div>
+            <EmptyState
+              title="Paste your project to audit"
+              action={<Button variant="secondary" onClick={() => { setCode(SAMPLE_PROJECT); setResult(null) }}>Load sample project</Button>}
+            >
+              You get a verdict plus a score for security, code quality, maintainability, AI patterns and deploy readiness.
+            </EmptyState>
           )}
 
           {loading && (
-            <div className="panel panel-pad stack">
+            <Card pad className="stack">
               <div className="h3">Auditing {lineCount} lines</div>
-              <p className="muted">Checking security, quality, maintainability, AI patterns and deploy readiness</p>
-              <div className="skel" style={{ width: "100%" }} />
-              <div className="skel" style={{ width: "85%" }} />
-              <div className="skel" style={{ width: "70%" }} />
-            </div>
+              <Progress steps={AUDIT_STEPS} current={step} />
+              <SkeletonLines label="Checking security, quality, maintainability, AI patterns and deploy readiness" />
+            </Card>
           )}
 
           {result && (
