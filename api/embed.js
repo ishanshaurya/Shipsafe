@@ -11,6 +11,7 @@
 
 import { createClient } from "@supabase/supabase-js"
 import { verifyUser } from "./_lib/auth.js"
+import { withLog } from "./_lib/log.js"
 import { checkRateLimit } from "./_lib/rateLimit.js"
 import { generateEmbedding } from "./_lib/providers.js"
 import { isEmbedding, MAX_TEXT_CHARS, clampSimilarLimit } from "./_lib/validate.js"
@@ -26,7 +27,7 @@ function dbClient(userClient) {
   return serviceKey ? createClient(url, serviceKey) : userClient
 }
 
-export default async function handler(req, res) {
+export default withLog("embed", async function handler(req, res, log) {
   res.setHeader("Access-Control-Allow-Origin", "https://shipsafe-app.vercel.app")
   res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS")
   res.setHeader("Access-Control-Allow-Headers", "Content-Type")
@@ -39,10 +40,12 @@ export default async function handler(req, res) {
   }
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" })
 
-  const { user, supabase: userClient } = await verifyUser(req)
+  log.setAction(req.body?.action)
+  const { user, supabase: userClient } = await log.time("auth", () => verifyUser(req))
   if (!user) return res.status(401).json({ error: "Sign in required" })
+  log.setUser(user)
 
-  const limit = await checkRateLimit(userClient, { bucket: "embed", max: RATE_LIMIT_MAX, errorStatus: 502 })
+  const limit = await checkRateLimit(userClient, { bucket: "embed", max: RATE_LIMIT_MAX, errorStatus: 502, log })
   if (!limit.ok) return res.status(limit.status).json({ error: limit.error })
 
   const geminiKey = process.env.GEMINI_API_KEY
@@ -57,10 +60,10 @@ export default async function handler(req, res) {
     if (text.length > MAX_TEXT_CHARS) return res.status(400).json({ error: "Text too large" })
 
     try {
-      const embedding = await generateEmbedding(text, geminiKey)
+      const embedding = await log.time("embed", () => generateEmbedding(text, geminiKey), { provider: "gemini" })
       return res.status(200).json({ embedding })
     } catch (err) {
-      console.error("Embedding generation failed:", err)
+      log.error("embed_generate", err)
       return res.status(502).json({ error: "Embedding unavailable" })
     }
   }
@@ -76,21 +79,23 @@ export default async function handler(req, res) {
     try {
       // pgvector cosine distance search, scoped by match_scans to auth.uid()
       // <=> is the cosine distance operator (0 = identical, 2 = opposite)
-      const { data, error } = await userClient.rpc("match_scans", {
-        query_embedding: embedding,
-        exclude_scan_id: currentScanId || null,
-        match_threshold: 0.4, // cosine distance threshold (lower = more similar)
-        match_count: matchCount,
-      })
+      const { data, error } = await log.time("db", () =>
+        userClient.rpc("match_scans", {
+          query_embedding: embedding,
+          exclude_scan_id: currentScanId || null,
+          match_threshold: 0.4, // cosine distance threshold (lower = more similar)
+          match_count: matchCount,
+        })
+      )
 
       if (error) {
-        console.error("Similarity search failed:", error)
+        log.error("similar", error)
         return res.status(502).json({ error: "Similarity search unavailable" })
       }
 
       return res.status(200).json({ similar: data || [] })
     } catch (err) {
-      console.error("Similarity search error:", err)
+      log.error("similar", err)
       return res.status(502).json({ error: "Similarity search unavailable" })
     }
   }
@@ -105,23 +110,25 @@ export default async function handler(req, res) {
     try {
       const supabase = dbClient(userClient)
 
-      const { error } = await supabase
-        .from("scan_history")
-        .update({ embedding })
-        .eq("id", scanId)
-        .eq("user_id", user.id)
+      const { error } = await log.time("db", () =>
+        supabase
+          .from("scan_history")
+          .update({ embedding })
+          .eq("id", scanId)
+          .eq("user_id", user.id)
+      )
 
       if (error) {
-        console.error("Embedding save failed:", error)
+        log.error("save", error)
         return res.status(502).json({ error: "Embedding save failed" })
       }
 
       return res.status(200).json({ success: true })
     } catch (err) {
-      console.error("Embedding save error:", err)
+      log.error("save", err)
       return res.status(502).json({ error: "Embedding save failed" })
     }
   }
 
   return res.status(400).json({ error: "Invalid action. Use: generate, similar, or save" })
-}
+})

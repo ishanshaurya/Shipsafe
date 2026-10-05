@@ -38,7 +38,7 @@ function topLevelKeys(shape) {
 const successShapes = (text) => [...text.matchAll(/`200 (\{[^`]*\})`/g)].map((m) => topLevelKeys(m[1]))
 const errorCodes = (text) => {
   const line = text.match(/^- Errors:.*$/m)?.[0] ?? ""
-  return [...line.matchAll(/`(\d{3})/g)].map((m) => Number(m[1]))
+  return [...new Set([...line.matchAll(/`(\d{3})/g)].map((m) => Number(m[1])))]
 }
 
 // Replay setup shared by the three routes.
@@ -74,6 +74,7 @@ const ROUTES = {
       400: async () => ROUTES["/api/github"].call({ url: "https://github.com/../x" }),
       401: async () => ROUTES["/api/github"].call(github, { token: null }),
       404: async () => ROUTES["/api/github"].call(github, { fetchImpl: githubFetch({ tree: [] }) }),
+      429: async () => ROUTES["/api/github"].call(github, over(16)),
       502: async () => ROUTES["/api/github"].call(github, { fetchImpl: githubFetch({ missingRepo: true }) }),
     },
   },
@@ -94,6 +95,7 @@ const ROUTES = {
     errors: {
       400: async () => ROUTES["/api/embed"].call({ action: "nope" }),
       401: async () => ROUTES["/api/embed"].call({ action: "generate", text: "x" }, { token: null }),
+      429: async () => ROUTES["/api/embed"].call({ action: "generate", text: "x" }, over(61)),
       502: async () =>
         ROUTES["/api/embed"].call(
           { action: "generate", text: "x" },
@@ -101,13 +103,6 @@ const ROUTES = {
         ),
     },
   },
-}
-
-// Added after the contract was frozen (rate limits, B2). Not in CONTRACTS.md
-// yet; remove an entry here once the integrator documents it.
-const ADDITIONS = {
-  "/api/embed": { 429: async () => ROUTES["/api/embed"].call({ action: "generate", text: "x" }, over(61)) },
-  "/api/github": { 429: async () => ROUTES["/api/github"].call(github, over(16)) },
 }
 
 describe("auth (all routes)", () => {
@@ -141,15 +136,6 @@ describe.each(Object.keys(ROUTES))("%s matches CONTRACTS.md", (route) => {
     for (const code of codes) {
       const { res } = await replay.errors[code]()
       expect(res.statusCode, `code ${code}`).toBe(code)
-      expect(res.body).toEqual({ error: expect.any(String) })
-    }
-  })
-
-  it("keeps additions beyond the contract explicit", async () => {
-    for (const [code, run] of Object.entries(ADDITIONS[route] ?? {})) {
-      expect(errorCodes(text)).not.toContain(Number(code)) // documented now? drop it from ADDITIONS
-      const { res } = await run()
-      expect(res.statusCode).toBe(Number(code))
       expect(res.body).toEqual({ error: expect.any(String) })
     }
   })

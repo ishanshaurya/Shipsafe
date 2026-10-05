@@ -1,4 +1,5 @@
 import { verifyUser } from "./_lib/auth.js"
+import { withLog } from "./_lib/log.js"
 import { checkRateLimit } from "./_lib/rateLimit.js"
 import { validateGeminiBody } from "./_lib/validate.js"
 import {
@@ -111,7 +112,7 @@ Rules:
   regulations: `You are a global AI regulation expert. Return ONLY valid JSON, no markdown, no backticks, no explanation. Only include regulations you are confident are real. If unsure, omit it. Return maximum 4 regulations. Each summary max 2 sentences. Checklist max 4 items. Checklist items must be actionable and testable (e.g. 'Add watermark to AI-generated media'), never generic advice like 'ensure compliance'.`,
 }
 
-export default async function handler(req, res) {
+export default withLog("gemini", async function handler(req, res, log) {
   // ── CORS — locked to production origin only ──
   res.setHeader("Access-Control-Allow-Origin", "https://shipsafe-app.vercel.app")
   res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS")
@@ -129,12 +130,14 @@ export default async function handler(req, res) {
   // ── Auth — login was previously enforced only client-side (React
   //    router), so this endpoint was reachable by anyone with the URL.
   //    Require and verify a Supabase session before doing anything else. ──
-  const { user, supabase } = await verifyUser(req)
+  log.setAction(req.body?.tool)
+  const { user, supabase } = await log.time("auth", () => verifyUser(req))
   if (!user) return res.status(401).json({ error: "Sign in required" })
+  log.setUser(user)
 
   // ── Rate limiting — per user, persisted in Postgres so it survives cold
   //    starts and can't be dodged by rotating IPs ──
-  const limit = await checkRateLimit(supabase, { bucket: "gemini", max: RATE_LIMIT_MAX })
+  const limit = await checkRateLimit(supabase, { bucket: "gemini", max: RATE_LIMIT_MAX, log })
   if (!limit.ok) return res.status(limit.status).json({ error: limit.error })
 
   if (configuredProviders().length === 0) return res.status(500).json({ error: "Service unavailable" })
@@ -150,10 +153,10 @@ export default async function handler(req, res) {
   // ── Non-streaming ──
   if (!stream) {
     try {
-      const { content, provider } = await generateWithFallback(systemPrompt, userPrompt)
+      const { content, provider } = await generateWithFallback(systemPrompt, userPrompt, log)
       return res.status(200).json({ content, provider })
     } catch (err) {
-      console.error("All providers failed:", err.status, err.message)
+      log.error("providers_failed", err)
       return res.status(502).json({ error: "AI provider unavailable — try again shortly" })
     }
   }
@@ -168,12 +171,14 @@ export default async function handler(req, res) {
   for (let i = 0; i < order.length; i++) {
     const provider = order[i]
     const isLast = i === order.length - 1
+    const t0 = performance.now()
     try {
-      await streamProvider(provider, systemPrompt, userPrompt, res)
+      await streamProvider(provider, systemPrompt, userPrompt, res, log)
       return
     } catch (err) {
       markCooldown(provider.name, cooldownFor(err.status))
-      console.error(`[gemini] stream provider "${provider.name}" failed:`, err.status, err.message)
+      log.stage("provider", performance.now() - t0, { provider: provider.name, ok: false, status: err.status, attempt: i + 1 })
+      log.error("stream_provider_failed", err)
       if (isLast) {
         if (!res.headersSent) return res.status(502).json({ error: "AI provider unavailable — try again shortly" })
         return res.end()
@@ -181,4 +186,4 @@ export default async function handler(req, res) {
       // not last — loop tries the next provider, nothing has been written yet
     }
   }
-}
+})
