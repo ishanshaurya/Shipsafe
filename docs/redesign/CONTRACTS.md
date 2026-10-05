@@ -23,14 +23,16 @@ Request `{ action: "generate", text } | { action: "similar", embedding: number[7
 - Errors: `400`, `401`, `502` (all `{"error"}`)
 
 ## Client service surface (src/features, src/shared)
-- `features/scan/scanService`: `callAI(tool,payload)`, `callAIStream(tool,payload,onChunk)` return `{content,error}`. Also `validate`, `extractScore`, `normalizeAuditResult`, `normalizeLoopholesResult`.
+- `features/scan/scanService`: `callAI(tool,payload)`, `callAIStream(tool,payload,onChunk)` return `{content,error}`. Also `validate(tool,parsed)`, which dispatches to the tool module.
+- Tool modules (`features/{debugger,audit,loopholes}/<tool>Tool.js`, registered in `features/scan/toolModules.js`): `{id, inputField, embedded?, buildPrompt, validate, normalize?, score, suggest}`. Audit and Loopholes also export `normalizeAuditResult` / `normalizeLoopholesResult`. Regulations has no tool module; `regulationsService` runs its own query.
 - `features/scan/scanRun`: `runScan({tool,payload,user,stream,onChunk})` returns `{result,score,suggestions,error}`; `findSimilarScans(tool,result)` returns `[]` on any failure.
 - `features/scan/scanHistory`: `saveScan`, `getScanHistory`, `attachEmbedding`, `embeddingText`.
 - `features/regulations/regulationsService`: `fetchRegulations(topic)` returns the regulation result, or the mock result when the AI call fails.
-- `features/github-import/githubImport`: `importRepo`, `listRepoFiles`, `fetchRepoFiles` return `{data,error,aborted?}` and never throw.
+- `features/github-import/githubImport`: `importRepo`, `listRepoFiles`, `fetchRepoFiles` return `{data,error,aborted?}` and never throw. `useRepoImport({onImported})` returns `{repoProps}` for `<RepoImport>`.
 - `features/reports/reportService`: `saveReport`, `getReportBySlug`.
 - `features/auth/authService`: `signUp`, `signInWithPassword`, `signInWithGitHub`, `signOut`, `getCurrentUser`, `onAuthChange`.
 - `shared/authHeader`: `authHeader()`.
+- Removed in Wave 2: `extractScore` (now each tool's `score`), `crossToolSuggestions.getSuggestions` (now each tool's `suggest`).
 - Removed in A2 (no callers): `supabaseService` (split into the modules above), `getScanById`, `deleteScan`, `getRegulations`, `getRegulationById`, `getUserProfile`, `updateUserProfile`.
 
 Only `scanService`, `scanRun`, `scanHistory`, `githubImport` and `regulationsService` call `/api/*`. Only `supabaseClient`, `authHeader`, `authService`, `scanHistory` and `reportService` touch the Supabase client. Pages never do either. `src/app/architecture.test.js` enforces both lists.

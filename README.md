@@ -181,8 +181,10 @@ Shipsafe/
 │   ├── app/                # App routes, Layout, ErrorBoundary, architecture.test.js
 │   ├── features/
 │   │   ├── auth/           # authService, AuthProvider, Login
-│   │   ├── scan/           # scanService, scanRun, scanHistory, crossToolSuggestions
-│   │   ├── tools/          # Debugger, Audit, Loopholes pages
+│   │   ├── scan/           # scanService, scanRun, scanHistory, toolModules
+│   │   ├── debugger/       # Debugger page, debuggerTool
+│   │   ├── audit/          # Audit page, auditTool
+│   │   ├── loopholes/      # Loopholes page, loopholesTool
 │   │   ├── github-import/  # githubImport, RepoImport
 │   │   ├── regulations/    # Regulations page, regulationsService
 │   │   ├── reports/        # Report page, reportService, ReportButton

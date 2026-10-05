@@ -17,7 +17,7 @@ Plan the phase before starting it. Every phase must pass the gate, then has a br
 | GitHub import | `githubImport.js` + hook | 8 `useState`s + 3 fetch handlers duplicated in Audit and Debugger | Strong, service built, hook held |
 | Verdict | one score/severity → tone/label/shape module | 7 private maps (`Debugger`, `Report`, `Regulations`, `Audit`, `NextSteps`, `ScoreRing`, `shipReadiness`) | Strong |
 | Tool registry | one list of tools (name, path, icon, group, blurb) | `Layout` NAV, `Landing` FEATURES, `Dashboard` TOOLS | Strong |
-| Per-tool module | prompt + normalize + score + label per tool | logic split across `scanService`, `scanRun`, `crossToolSuggestions`, pages | Worth exploring (after item 1) |
+| Per-tool module | prompt + normalize + score + label per tool | logic split across `scanService`, `scanRun`, `crossToolSuggestions`, pages | Done: `src/features/<tool>/<tool>Tool.js` |
 | Shared tool page frame | header / input / result ledger / next steps | all four tool pages | Speculative, collides with items 1 and 3 |
 
 ## Briefs
