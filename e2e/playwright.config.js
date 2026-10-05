@@ -14,6 +14,10 @@ export default defineConfig({
   reporter: [['list']],
   use: {
     baseURL,
+    // Lets CI reach a preview behind Vercel Deployment Protection; unset locally.
+    extraHTTPHeaders: process.env.VERCEL_AUTOMATION_BYPASS_SECRET
+      ? { 'x-vercel-protection-bypass': process.env.VERCEL_AUTOMATION_BYPASS_SECRET }
+      : {},
     // Traces and videos can capture typed credentials, so keep them off.
     trace: 'off',
     video: 'off',

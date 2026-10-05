@@ -1,11 +1,21 @@
 # Lane C status
 
-- Phase: C1 (safety net)
+- Phase: C2 (CI gates)
 - State: DONE (signed-in tests deferred)
 - Last update: 2026-10-05
+- Dependencies needed from B (baton): none
 - Branch: redesign/c-qa
 
-## Done
+## Done (C2)
+- `.github/workflows/ci.yml`: lint, test, build, audit, gitleaks as separate jobs; triggers on `main` and `redesign/**`.
+- `.github/workflows/e2e.yml`: preview deploy via Vercel CLI, then `api-auth.spec.js` only unless `E2E_EMAIL`/`E2E_PASSWORD` set. Skips with a notice if Vercel secrets are missing.
+- `.github/dependabot.yml`: npm + github-actions, weekly.
+- `e2e/playwright.config.js`: optional `x-vercel-protection-bypass` header from `VERCEL_AUTOMATION_BYPASS_SECRET`.
+- `docs/redesign/ci.md`: jobs, secret names, verification.
+- Red check shown locally: fake token + failing test in a throwaway clone turns gitleaks and vitest red. actionlint clean.
+- No app code, package.json or lockfile changes.
+
+## Done (C1)
 - Playwright (`@playwright/test`) added as devDependency; `npm run e2e` script. Baton held (package.json, lockfile).
 - `e2e/playwright.config.js`: needs `BASE_URL`; traces, video, screenshots off so credentials never land in artifacts.
 - `e2e/fixtures.js`: UI sign-in per test from env vars, no storageState file. `E2E_STRIP_AUTH=1` removes the Authorization header from `/api/*` calls (negative control).
@@ -22,4 +32,6 @@
 - Candidate user: `ishannshaurya+shipsafe-e2e@gmail.com`, password in macOS Keychain service `shipsafe-e2e`. Needs owner approval.
 
 ## Requests
+- Integrator/owner: full-history gitleaks finds 2 existing leaks (`backend/.env` JWT in `a2b59045`; generic key in `src/pages/Debugger.jsx:43` in `74cc4eb5`). Rotate if live; history rewrite needs approval. Details in `docs/redesign/ci.md`. CI scans new commits only.
+- Owner: set repo secrets listed in `docs/redesign/ci.md`.
 - Integrator: tool selectors were written from reading `src/` at this commit. Lane A's A1/A2 must keep accessible names (button labels, field labels, `Verdict` region) or tell C.
