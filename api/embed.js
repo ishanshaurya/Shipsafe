@@ -73,13 +73,10 @@ export default async function handler(req, res) {
     const matchCount = Math.min(Math.max(parseInt(limit, 10) || 5, 1), MAX_SIMILAR)
 
     try {
-      const supabase = dbClient(userClient)
-
-      // pgvector cosine distance search
+      // pgvector cosine distance search, scoped by match_scans to auth.uid()
       // <=> is the cosine distance operator (0 = identical, 2 = opposite)
-      const { data, error } = await supabase.rpc("match_scans", {
+      const { data, error } = await userClient.rpc("match_scans", {
         query_embedding: embedding,
-        match_user_id: user.id,
         exclude_scan_id: currentScanId || null,
         match_threshold: 0.4, // cosine distance threshold (lower = more similar)
         match_count: matchCount,
