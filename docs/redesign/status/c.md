@@ -1,10 +1,17 @@
 # Lane C status
 
-- Phase: C2 (CI gates)
-- State: DONE (signed-in tests deferred)
+- Phase: C3 (hardening)
+- State: DONE (signed-in tests deferred; gate red from lane B's contract.test.js, see Requests)
 - Last update: 2026-10-05
-- Dependencies needed from B (baton): none
+- Dependencies needed (baton is lane A this wave): none. Script change for the baton holder, optional: `"test": "vitest run"` and drop `test:api` (root `vitest.config.js` now runs both; current `npm test` still works but runs the API tests twice).
 - Branch: redesign/c-qa
+
+## Done (C3)
+- Merged `redesign/main` (normal merge, no conflicts); backlog TODO edit committed first as its own docs commit.
+- `scripts/health.sh <url>`: page 200, 5 security headers, `/api/gemini|github|embed` 401 without token, response times; exit 1 on failure. Verified on prod (HEALTHY) and against a bad URL (exit 1).
+- Root `vitest.config.js` runs `src/` and `tests/api/` together. `tests/api/vitest.config.js` kept as a thin wrapper so `npm run test:api` works. `vite.config.js` untouched.
+- `docs/redesign/cost-alerts.md`, `docs/redesign/testing.md`.
+- No package.json or lockfile changes.
 
 ## Done (C2)
 - `.github/workflows/ci.yml`: lint, test, build, audit, gitleaks as separate jobs; triggers on `main` and `redesign/**`.
@@ -32,6 +39,7 @@
 - Candidate user: `ishannshaurya+shipsafe-e2e@gmail.com`, password in macOS Keychain service `shipsafe-e2e`. Needs owner approval.
 
 ## Requests
+- Lane B / integrator: `tests/api/contract.test.js` fails 4 assertions on `redesign/main` (also with lane B's original config, so not caused by the config merge). It lists 429 for `/api/github` and `/api/embed` under `ADDITIONS` (undocumented), but commit `c08a255` documented 429 in `CONTRACTS.md`. Fix in lane B's file: remove the two 429 entries from `ADDITIONS` and add them to the replay map. Until then `scripts/gate.sh` and CI `test` are red. File is outside lane C's scope, so not edited.
 - Integrator/owner: full-history gitleaks finds 2 existing leaks (`backend/.env` JWT in `a2b59045`; generic key in `src/pages/Debugger.jsx:43` in `74cc4eb5`). Rotate if live; history rewrite needs approval. Details in `docs/redesign/ci.md`. CI scans new commits only.
 - Owner: set repo secrets listed in `docs/redesign/ci.md`.
 - Integrator: tool selectors were written from reading `src/` at this commit. Lane A's A1/A2 must keep accessible names (button labels, field labels, `Verdict` region) or tell C.

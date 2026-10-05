@@ -1,11 +1,8 @@
-import { fileURLToPath } from "node:url"
-import { defineConfig } from "vitest/config"
+import { defineConfig } from 'vitest/config'
+import base from '../../vitest.config.js'
 
-// Separate from vite.config.js (owned by lane A); `npm test` runs both.
+// Kept so `npm run test:api` still works; the root vitest.config.js already includes these tests.
 export default defineConfig({
-  root: fileURLToPath(new URL("../..", import.meta.url)),
-  test: {
-    environment: "node",
-    include: ["tests/api/**/*.test.js"],
-  },
+  ...base,
+  test: { ...base.test, include: ['tests/api/**/*.test.js'] },
 })
