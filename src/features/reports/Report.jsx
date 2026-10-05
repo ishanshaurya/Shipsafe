@@ -6,6 +6,9 @@ import Flag from "../../shared/components/Flag"
 import Logo from "../../shared/components/Logo"
 import { CodeSnippet, FixPanel } from "../../shared/components/CodePanel"
 import { Detail } from "../../shared/components/Finding"
+import Button from "../../shared/ui/Button"
+import ErrorState from "../../shared/ui/ErrorState"
+import { Skeleton } from "../../shared/ui/Skeleton"
 
 function timeAgo(ts) {
   const diff = Math.floor((Date.now() - new Date(ts)) / 1000)
@@ -161,7 +164,7 @@ function ReportShell({ children }) {
             <Logo size={28} tone="light" />
             ShipSafe
           </Link>
-          <Link to="/dashboard" className="btn btn-primary btn-sm">Run your own scan</Link>
+          <Button to="/dashboard" size="sm">Run your own scan</Button>
         </div>
       </header>
       <main style={{ maxWidth: 720, margin: "0 auto", padding: "48px 16px 96px" }}>
@@ -174,31 +177,41 @@ function ReportShell({ children }) {
 export default function Report() {
   const { slug } = useParams()
   const [report, setReport] = useState(null)
-  const [loading, setLoading] = useState(true)
-  const [notFound, setNotFound] = useState(false)
+  const [status, setStatus] = useState("loading")   // loading | ready | notfound | error
+  const [attempt, setAttempt] = useState(0)
 
   useEffect(() => {
     if (!slug) return
     getReportBySlug(slug).then(({ data, error }) => {
-      if (error || !data) setNotFound(true)
-      else setReport(data)
-      setLoading(false)
+      if (data) { setReport(data); setStatus("ready"); return }
+      // PGRST116 = no row matched. Anything else (network, server) is worth a retry.
+      setStatus(!error || error.code === "PGRST116" ? "notfound" : "error")
     })
-  }, [slug])
+  }, [slug, attempt])
 
-  if (loading) return (
+  const retry = () => { setStatus("loading"); setAttempt((n) => n + 1) }
+
+  if (status === "loading") return (
     <ReportShell>
       <div className="stack" role="status">
-        <div className="skel" style={{ width: "60%", height: 40 }} />
-        <div className="skel" style={{ width: "30%" }} />
-        <div className="skel" style={{ width: "100%" }} />
-        <div className="skel" style={{ width: "85%" }} />
+        <Skeleton width="60%" height={40} />
+        <Skeleton width="30%" />
+        <Skeleton width="100%" />
+        <Skeleton width="85%" />
         <span className="sr-only">Loading report</span>
       </div>
     </ReportShell>
   )
 
-  if (notFound) return (
+  if (status === "error") return (
+    <ReportShell>
+      <ErrorState title="Couldn't load this report" onRetry={retry}>
+        The report may exist, but the request failed. Check your connection and try again.
+      </ErrorState>
+    </ReportShell>
+  )
+
+  if (status === "notfound") return (
     <ReportShell>
       <h1 className="display" style={{ fontSize: 40, marginBottom: 16 }}>Report not found</h1>
       <p className="muted">This report doesn't exist or is no longer shared. <Link to="/">Go to ShipSafe</Link>.</p>
