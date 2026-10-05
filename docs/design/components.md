@@ -1,6 +1,6 @@
 # Components
 
-Only components that hide behavior or carry a shared meaning are primitives. Plain layout stays as markup. Files go flat in `src/components/` / `src/utils/` until the folder reshape (refactor item 6).
+Only components that hide behavior or carry a shared meaning are primitives. Plain layout stays as markup. Shared ones live in `src/shared/components/`; feature-only ones sit in their feature folder.
 
 ## Deep modules (own the rule, many callers)
 | Module | Owns | Replaces |

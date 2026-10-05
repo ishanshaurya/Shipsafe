@@ -48,7 +48,7 @@ Plan the phase before starting it. Every phase must pass the gate, then has a br
 
 ### Grab-bags (item 4)
 - `api/gemini.js` → `api/_lib/` (providers, cooldowns, prompts). Preserve: CORS, session check, 20/60s limit, fallback order, stream cannot switch mid-stream. Add tests for provider ordering/cooldown before moving.
-- `supabaseService.js` split by domain (scans, reports, regulations, users) next to its feature. Do after folder reshape decisions.
+- `supabaseService.js` split by domain next to its feature: done (`scanHistory`, `reportService`, `shared/authHeader`).
 - Fold in `endpoint-hardening.md` only if the user asks; it changes behaviour.
 
 ### Folder reshape (item 6)

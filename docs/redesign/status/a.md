@@ -2,7 +2,7 @@
 
 - Phase: A2 (feature folders)
 - State: DONE in code (gate green, committed on redesign/a-frontend). Item 3 (one module per tool) NOT done, see Notes.
-- Last update: 2026-10-04
+- Last update: 2026-10-05
 - Branch: redesign/a-frontend
 
 ## Done
@@ -25,5 +25,4 @@
 (nothing for lane A)
 
 ## Requests
-- Integrator, CONTRACTS.md "Client service surface": function names are unchanged but module homes moved. `scanService` (callAI, callAIStream, validate, normalizers), `scanRun`, `scanHistory` (saveScan, getScanHistory, attachEmbedding, embeddingText), `reportService` (saveReport, getReportBySlug), `shared/authHeader` (authHeader), `githubImport`, `regulationsService` (fetchRegulations). `getScanById` and `deleteScan` were deleted (no callers).
-- Integrator, root `AGENTS.md` "Layout rules" and README "Project structure" still describe `src/pages|components|services`. Both need the new layout. Not lane A files.
+(none open) Docs for the A2 layout are updated: `docs/redesign/CONTRACTS.md` "Client service surface", root `AGENTS.md` layout rules, README project structure, and `docs/redesign/PLAN.md` (Wave 0 ticks, A1/A2 status lines). Other stale `src/*` paths in `docs/` fixed too.

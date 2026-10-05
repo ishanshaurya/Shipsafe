@@ -22,12 +22,18 @@ Request `{ action: "generate", text } | { action: "similar", embedding: number[7
 - generate `200 {embedding}`, similar `200 {similar:[{...,similarity}]}`, save `200 {success:true}`
 - Errors: `400`, `401`, `502` (all `{"error"}`)
 
-## Client service surface (src/services)
-- `scanService`: `callAI(tool,payload)`, `callAIStream(tool,payload,onChunk)`, `fetchRegulations(topic)` return `{content,error}` or the regulation result.
-- `scanRun`: `runScan({tool,payload,user,stream,onChunk})`, `findSimilarScans(tool,result)`.
-- `githubImport`: `importRepo`, `listRepoFiles`, `fetchRepoFiles` return `{data,error,aborted?}`.
-- `supabaseService`: `authHeader()`, `saveScan`, `getScanHistory`, `getScanById`, `deleteScan`, `saveReport`, `getReportBySlug`, `attachEmbedding`.
-Only these modules call `/api/*` or Supabase. Pages never call `fetch("/api/...")` directly.
+## Client service surface (src/features, src/shared)
+- `features/scan/scanService`: `callAI(tool,payload)`, `callAIStream(tool,payload,onChunk)` return `{content,error}`. Also `validate`, `extractScore`, `normalizeAuditResult`, `normalizeLoopholesResult`.
+- `features/scan/scanRun`: `runScan({tool,payload,user,stream,onChunk})` returns `{result,score,suggestions,error}`; `findSimilarScans(tool,result)` returns `[]` on any failure.
+- `features/scan/scanHistory`: `saveScan`, `getScanHistory`, `attachEmbedding`, `embeddingText`.
+- `features/regulations/regulationsService`: `fetchRegulations(topic)` returns the regulation result, or the mock result when the AI call fails.
+- `features/github-import/githubImport`: `importRepo`, `listRepoFiles`, `fetchRepoFiles` return `{data,error,aborted?}` and never throw.
+- `features/reports/reportService`: `saveReport`, `getReportBySlug`.
+- `features/auth/authService`: `signUp`, `signInWithPassword`, `signInWithGitHub`, `signOut`, `getCurrentUser`, `onAuthChange`.
+- `shared/authHeader`: `authHeader()`.
+- Removed in A2 (no callers): `supabaseService` (split into the modules above), `getScanById`, `deleteScan`, `getRegulations`, `getRegulationById`, `getUserProfile`, `updateUserProfile`.
+
+Only `scanService`, `scanRun`, `scanHistory`, `githubImport` and `regulationsService` call `/api/*`. Only `supabaseClient`, `authHeader`, `authService`, `scanHistory` and `reportService` touch the Supabase client. Pages never do either. `src/app/architecture.test.js` enforces both lists.
 
 ## Database objects the app relies on
 Tables `scan_history` (incl. `embedding vector(768)`), `reports`, `regulations`, `rate_limits`. Functions `increment_rate_limit(timestamptz)`, `match_scans(...)`. RLS: users read and write only their own rows. `reports` rows with `is_public` are readable by anyone.
