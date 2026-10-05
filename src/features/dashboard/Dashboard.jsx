@@ -8,7 +8,9 @@ import { computeShipReadiness } from "./shipReadiness"
 import { scanVerdict, scoreVerdict, VERDICT_WORD } from "../../shared/verdict"
 import { TOOL_GROUPS } from "../../shared/toolRegistry"
 import Flag from "../../shared/components/Flag"
-import Notice from "../../shared/components/Notice"
+import Button from "../../shared/ui/Button"
+import ErrorState from "../../shared/ui/ErrorState"
+import { Skeleton, SkeletonLines } from "../../shared/ui/Skeleton"
 
 /* ═══════════════════════════════════════════════════════════
    DASHBOARD — ship-readiness, per-tool scores, recent scans.
@@ -55,8 +57,9 @@ export default function Dashboard() {
   const { user } = useAuth()
   const [scans, setScans] = useState(null)   // null = not yet loaded
   const [rawScans, setRawScans] = useState(null)  // unprocessed Supabase rows
-  const [loading, setLoading] = useState(false)
+  const [loading, setLoading] = useState(Boolean(user))   // skeleton from the first paint, not mock rows
   const [fetchError, setFetchError] = useState(null)
+  const [attempt, setAttempt] = useState(0)   // bumped by Try again
 
   useEffect(() => {
     if (!user) { setScans(null); setRawScans(null); return }
@@ -67,7 +70,7 @@ export default function Dashboard() {
       try {
         const { data, error } = await getScanHistory(user.id)
         if (error) {
-          setFetchError("Couldn't load your scan history. Reload to try again.")
+          setFetchError("Couldn't load your scan history.")
           setScans([])
           setRawScans([])
         } else {
@@ -76,7 +79,7 @@ export default function Dashboard() {
         }
       } catch (err) {
         console.error("Supabase fetch error:", err)
-        setFetchError("Couldn't reach the database. Reload to try again.")
+        setFetchError("Couldn't reach the database.")
         setScans([])
         setRawScans([])
       } finally {
@@ -85,7 +88,7 @@ export default function Dashboard() {
     }
 
     fetchScans()
-  }, [user])
+  }, [user, attempt])
 
   const displayScans = scans ?? MOCK_SCANS
   const readiness = computeShipReadiness(rawScans ?? MOCK_SCANS)
@@ -98,7 +101,7 @@ export default function Dashboard() {
         <p>{user ? `Signed in as ${user.email}` : "Your ShipSafe overview."}</p>
       </header>
 
-      {fetchError && <div style={{ marginBottom: 24 }}><Notice tone="error" title="Dashboard unavailable">{fetchError}</Notice></div>}
+      {fetchError && !loading && <div style={{ marginBottom: 24 }}><ErrorState title="Dashboard unavailable" onRetry={() => setAttempt((n) => n + 1)}>{fetchError}</ErrorState></div>}
 
       {/* Ship readiness */}
       <section className="panel" aria-labelledby="readiness-heading" style={{ marginBottom: 48 }}>
@@ -108,14 +111,14 @@ export default function Dashboard() {
 
         {loading ? (
           <div className="panel-pad stack" role="status">
-            <div className="skel" style={{ width: 180, height: 48 }} />
-            <div className="skel" style={{ width: "60%" }} />
-            <span className="sr-only">Loading</span>
+            <Skeleton width={180} height={48} />
+            <Skeleton width="60%" />
+            <span className="sr-only">Loading ship readiness</span>
           </div>
         ) : readiness.score === null ? (
           <div className="panel-pad">
             <p style={{ marginBottom: 16 }}>No scans yet. Run the AI Debugger on a file to get your first score.</p>
-            <Link to="/debugger" className="btn btn-primary">Run AI Debugger</Link>
+            <Button to="/debugger">Run AI Debugger</Button>
           </div>
         ) : (
           <div>
@@ -140,7 +143,7 @@ export default function Dashboard() {
                         {!info && <div className="row-meta">Not scanned yet</div>}
                       </div>
                       {info && <span className="display" style={{ fontSize: 28 }}>{info.adjusted}</span>}
-                      {!info && <Link to={TOOL_PATH[type]} className="btn btn-secondary btn-sm">Run</Link>}
+                      {!info && <Button to={TOOL_PATH[type]} variant="secondary" size="sm">Run</Button>}
                     </div>
                   </li>
                 )
@@ -154,14 +157,7 @@ export default function Dashboard() {
       <section style={{ marginBottom: 48 }} aria-labelledby="recent-heading">
         <h2 id="recent-heading" className="h2" style={{ marginBottom: 16 }}>Recent scans</h2>
 
-        {loading && (
-          <div className="stack" role="status">
-            <div className="skel" style={{ width: "100%", height: 24 }} />
-            <div className="skel" style={{ width: "100%", height: 24 }} />
-            <div className="skel" style={{ width: "100%", height: 24 }} />
-            <span className="sr-only">Loading</span>
-          </div>
-        )}
+        {loading && <SkeletonLines label="Loading recent scans" height={24} />}
 
         {!loading && displayScans.length === 0 && (
           <p className="muted">No scans yet. Run a tool below to get started.</p>

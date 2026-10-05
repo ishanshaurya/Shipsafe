@@ -1,11 +1,20 @@
 # Lane A status
 
-- Phase: Wave 2, A2 leftovers (one module per tool, shared GitHub picker)
-- State: DONE (gate green, committed on redesign/a-frontend)
+- Phase: Wave 3, A3 (UI primitives, loading/error states audit)
+- State: DONE (gate green except tests/api/contract.test.js, red on redesign/main before A3; see Requests)
 - Last update: 2026-10-05
 - Branch: redesign/a-frontend
 
 ## Done
+- A3 (after `git merge --ff-only redesign/main`; no new packages, `package.json` and lockfile untouched):
+  - `src/shared/ui/`: Button, Card, Field, Badge, Spinner, Skeleton/SkeletonLines, EmptyState, ErrorState, Notice (moved from `shared/components`), Progress, `useProgressStep`. Render tests in `ui.test.js` (react-dom/server, no new dependency). Commit 4e37390.
+  - Adopted in Debugger (35667d3), Audit and Loophole Finder (a513903), Regulations (5479cb8), Dashboard (07f4cb4), Report (da62517), and Login, RepoImport, ReportButton, CodePanel, Layout (ec30bb0). Landing still uses its own `ls-btn` styles.
+  - Loading: Debugger names its step and counts findings as they stream in (the old "mostly blank" panel). Audit, Loophole Finder and Regulations show named steps (Regulations: Connecting, Analysing laws and drafts, Building checklist) in a `role="status"` region. Steps without a real signal advance on a timer, so they are an estimate. Dashboard shows its skeleton from the first paint instead of flashing mock rows.
+  - Errors: a Try again button on every tool, the Regulations sample-data fallback, GitHub import, report-link creation, Dashboard load, and the shared report page. Report now tells "load failed" (retry) apart from "not found".
+  - Empty states: Regulations with zero results got one. The tools, Dashboard and Regulations landing already had them.
+  - `prefers-reduced-motion`: the existing global rule in `index.css` already collapses animations (spinner, skeleton pulse, banner hoist). Progress is plain text, so nothing else was needed.
+  - `aria-busy` removed from the result regions of the four tool pages: it silenced the new progress announcements.
+  - Accessible names: no label, button name or Verdict region changed. New names added: `Try again` (retry buttons), `Progress` (aria-label on the step list), and sr-only loading texts ("Loading ship readiness", "Loading recent scans"). None contains a string `e2e/tools.spec.js` matches by substring (checked).
 - Wave 2 leftovers (after `git merge --ff-only redesign/main`):
   - `useRepoImport` (`features/github-import/`) replaces the duplicated picker state and handlers in Debugger and Audit (077a74a). `RepoImport` markup and labels untouched.
   - One module per tool (f72ef04, 94545ba): `features/{debugger,audit,loopholes}/<tool>Tool.js` own prompt, validate, normalize, score, input field and suggestions, registered in `features/scan/toolModules.js`. `scanService` and `scanRun` dispatch through it. `extractScore` and `crossToolSuggestions` removed (folded in). Pages moved next to their modules; `features/tools/` is gone. Regulations already was its own module (`regulationsService`), left as is.
@@ -21,12 +30,13 @@
 - Gate: lint clean, 49 of 49 tests, build OK, audit 0.
 
 ## Notes
-- Per-tool display label still lives in `shared/toolRegistry` (and a local `SCAN_NAME` in Debugger for similar scans), not in the tool modules.
-- ErrorBoundary and the new hook have no automated test (node test env, no DOM). Needs the signed-in e2e or a manual check.
-- No signed-in browser check has run for any of A1, A2 or Wave 2. Manual click-through needed before the preview is trusted.
+- Per-tool display label still lives in `shared/toolRegistry` (and a local `SCAN_NAME` in Debugger), not in the tool modules.
+- No DOM test environment: ErrorBoundary, the hooks and the page-level states have no automated test; only the `ui` primitives do (server render).
+- No signed-in browser check has run for any of A1, A2, A3 or Wave 2. Manual click-through needed before the preview is trusted, especially the new progress, retry and error states (force one with the network offline).
+- Backlog items touched: "Debugger loading state", "Dashboard skeleton loaders" (the integrator ticks them).
 
 ## Blocked
 (nothing for lane A)
 
 ## Requests
-(none open) Integrator: CONTRACTS.md and PLAN.md already updated for the new module homes.
+- Integrator / lane B: `tests/api/contract.test.js` fails on `redesign/main` at c08a255 (4 tests, not touched by lane A): CONTRACTS.md now documents `429` for `/api/github` and `/api/embed`, but the replay table has no 429 case, and `errorCodes()` reports `502` twice for those routes (expected `[400,401,404,429,502,502]`, got `[400,401,404,502]`). So `scripts/gate.sh` is red on the baseline. Lane A ran lint, `vitest run src`, build and audit for each commit instead.

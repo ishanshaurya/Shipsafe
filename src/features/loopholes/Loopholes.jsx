@@ -1,12 +1,19 @@
 import { useState } from "react"
-import { Check, Loader2 } from "lucide-react"
+import { Check } from "lucide-react"
 import { runScan } from "../scan/scanRun"
 import { useAuth } from "../auth/useAuth"
 import ReportButton from "../reports/ReportButton"
 import NextSteps from "../scan/NextSteps"
 import Finding, { Detail } from "../../shared/components/Finding"
 import VerdictBanner from "../../shared/components/VerdictBanner"
-import Notice from "../../shared/components/Notice"
+import Button from "../../shared/ui/Button"
+import Card from "../../shared/ui/Card"
+import EmptyState from "../../shared/ui/EmptyState"
+import ErrorState from "../../shared/ui/ErrorState"
+import Field from "../../shared/ui/Field"
+import Progress from "../../shared/ui/Progress"
+import { SkeletonLines } from "../../shared/ui/Skeleton"
+import { useProgressStep } from "../../shared/ui/useProgressStep"
 import { scoreVerdict, severityVerdict } from "../../shared/verdict"
 
 /* ═══════════════════════════════════════════════════════════
@@ -18,6 +25,8 @@ import { scoreVerdict, severityVerdict } from "../../shared/verdict"
    3. AI returns grey areas, exploitation risks, defensive
       recommendations, and upcoming regulatory changes
    ═══════════════════════════════════════════════════════════ */
+
+const LOOPHOLE_STEPS = ["Checking jurisdictions", "Finding grey areas", "Ranking risk"]
 
 const COUNTRIES = [
   { id: "eu", name: "European Union" },
@@ -93,6 +102,7 @@ export default function Loopholes() {
     setLoading(false)
   }
 
+  const step = useProgressStep(loading, LOOPHOLE_STEPS.length)
   const disabled = loading || !description.trim() || selected.length === 0
 
   return (
@@ -107,9 +117,8 @@ export default function Loopholes() {
         {/* Input */}
         <div className="stack" style={{ gap: 20 }}>
           <div>
-            <label className="label" htmlFor="lh-desc">Describe your AI system</label>
-            <textarea
-              id="lh-desc" className="field" rows={7}
+            <Field
+              as="textarea" id="lh-desc" label="Describe your AI system" rows={7}
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               placeholder="For example: a facial recognition system for school attendance that stores biometric data in the cloud and makes automated decisions about student presence"
@@ -139,31 +148,29 @@ export default function Loopholes() {
           </fieldset>
 
           <div className="stack" style={{ gap: 12 }}>
-            <button type="button" className="btn btn-primary btn-block" onClick={runAnalysis} disabled={disabled}>
-              {loading && <Loader2 size={16} className="spin" aria-hidden="true" />}
-              Find loopholes
-            </button>
-            {error && <Notice tone="error" title="Analysis failed" onDismiss={() => setError(null)}>{error} Your description is still here. Run the analysis again.</Notice>}
+            <Button block onClick={runAnalysis} loading={loading} disabled={disabled}>Find loopholes</Button>
+            {error && (
+              <ErrorState title="Analysis failed" onRetry={runAnalysis} onDismiss={() => setError(null)}>
+                {error} Your description is still here.
+              </ErrorState>
+            )}
           </div>
         </div>
 
         {/* Result */}
-        <div aria-live="polite" aria-busy={loading}>
+        <div aria-live="polite">
           {!loading && !result && (
-            <div className="panel empty">
-              <h2 className="h2">Describe your AI system</h2>
-              <p>Pick at least one country. You get grey areas ranked by risk, how each could be exploited, and the defenses to put in place.</p>
-            </div>
+            <EmptyState title="Describe your AI system">
+              Pick at least one country. You get grey areas ranked by risk, how each could be exploited, and the defenses to put in place.
+            </EmptyState>
           )}
 
           {loading && (
-            <div className="panel panel-pad stack">
+            <Card pad className="stack">
               <div className="h3">Checking {selected.length} {selected.length === 1 ? "jurisdiction" : "jurisdictions"}</div>
-              <p className="muted">Looking for ambiguous rules that apply to your system</p>
-              <div className="skel" style={{ width: "100%" }} />
-              <div className="skel" style={{ width: "85%" }} />
-              <div className="skel" style={{ width: "70%" }} />
-            </div>
+              <Progress steps={LOOPHOLE_STEPS} current={step} />
+              <SkeletonLines label="Looking for ambiguous rules that apply to your system" />
+            </Card>
           )}
 
           {result && (

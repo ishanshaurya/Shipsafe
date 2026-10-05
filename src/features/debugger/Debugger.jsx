@@ -1,5 +1,4 @@
 import { useState } from "react"
-import { Loader2 } from "lucide-react"
 import { runScan, findSimilarScans } from "../scan/scanRun"
 import { useRepoImport } from "../github-import/useRepoImport"
 import { useAuth } from "../auth/useAuth"
@@ -9,7 +8,13 @@ import RepoImport from "../github-import/RepoImport"
 import CodePanel, { FixPanel, CodeSnippet } from "../../shared/components/CodePanel"
 import Finding, { Detail } from "../../shared/components/Finding"
 import VerdictBanner from "../../shared/components/VerdictBanner"
-import Notice from "../../shared/components/Notice"
+import Button from "../../shared/ui/Button"
+import Card from "../../shared/ui/Card"
+import EmptyState from "../../shared/ui/EmptyState"
+import ErrorState from "../../shared/ui/ErrorState"
+import Field from "../../shared/ui/Field"
+import Progress from "../../shared/ui/Progress"
+import { SkeletonLines } from "../../shared/ui/Skeleton"
 import { scoreVerdict, severityVerdict } from "../../shared/verdict"
 
 const LANGS = ["JavaScript","TypeScript","Python","Java","Go","Rust","C++","PHP","Ruby","SQL"]
@@ -72,6 +77,8 @@ function timeAgo(ts) {
   return h < 24 ? `${h}h ago` : `${Math.floor(h / 24)}d ago`
 }
 
+const REVIEW_STEPS = ["Connecting", "Analysing code", "Writing findings"]
+
 const SCAN_NAME = { debugger: "AI Debugger", audit: "Vibe-Code Audit", loopholes: "Loophole Finder" }
 
 export default function Debugger() {
@@ -124,6 +131,7 @@ export default function Debugger() {
   }
 
 
+  const findingsSoFar = (streamingText.match(/"severity"/g) || []).length
   const sorted = result ? [...result.issues].sort((a, b) => (SEVERITY_ORDER[a.severity] ?? 4) - (SEVERITY_ORDER[b.severity] ?? 4)) : []
   const allOpen = result ? result.issues.every(i => exp[i.id]) : false
   const counts = result
@@ -149,14 +157,12 @@ export default function Debugger() {
 
           <div className="field-row" style={{ alignItems: "flex-end" }}>
             <div style={{ flex: "0 0 150px" }}>
-              <label className="label" htmlFor="dbg-lang">Language</label>
-              <select id="dbg-lang" className="field" value={lang} onChange={e => setLang(e.target.value)}>
+              <Field as="select" id="dbg-lang" label="Language" value={lang} onChange={e => setLang(e.target.value)}>
                 {LANGS.map(l => <option key={l} value={l}>{l}</option>)}
-              </select>
+              </Field>
             </div>
             <div style={{ flex: 1, minWidth: 0 }}>
-              <label className="label" htmlFor="dbg-ctx">Context (optional)</label>
-              <input id="dbg-ctx" className="field" placeholder="What this code does" value={ctx} onChange={e => setCtx(e.target.value)} />
+              <Field id="dbg-ctx" label="Context (optional)" placeholder="What this code does" value={ctx} onChange={e => setCtx(e.target.value)} />
             </div>
           </div>
 
@@ -171,44 +177,45 @@ export default function Debugger() {
           />
 
           <div className="stack" style={{ gap: 12 }}>
-            <button type="button" className="btn btn-primary btn-block" onClick={handleScan} disabled={loading || !code.trim()}>
-              {loading && <Loader2 size={16} className="spin" aria-hidden="true" />}
-              Run review
-            </button>
-            {error && <Notice tone="error" title="Review failed" onDismiss={() => setError(null)}>{error} Your code is still here. Run the review again.</Notice>}
+            <Button block onClick={handleScan} loading={loading} disabled={!code.trim()}>Run review</Button>
+            {error && (
+              <ErrorState title="Review failed" onRetry={handleScan} onDismiss={() => setError(null)}>
+                {error} Your code is still here.
+              </ErrorState>
+            )}
           </div>
         </div>
 
         {/* Result */}
-        <div aria-live="polite" aria-busy={loading}>
+        <div aria-live="polite">
           {!loading && !result && !error && (
-            <div className="panel empty">
-              <h2 className="h2">Paste code to review</h2>
-              <p>You get a verdict and a list of findings, worst first. Each finding comes with a fix.</p>
-              <div>
-                <button type="button" className="btn btn-secondary" onClick={() => { setCode(SAMPLE); setLang("JavaScript"); setCtx("Express.js REST API"); setResult(null); setError(null) }}>
+            <EmptyState
+              title="Paste code to review"
+              action={
+                <Button variant="secondary" onClick={() => { setCode(SAMPLE); setLang("JavaScript"); setCtx("Express.js REST API"); setResult(null); setError(null) }}>
                   Load sample code
-                </button>
-              </div>
-            </div>
+                </Button>
+              }
+            >
+              You get a verdict and a list of findings, worst first. Each finding comes with a fix.
+            </EmptyState>
           )}
 
           {loading && (
-            <div className="panel panel-pad stack">
+            <Card pad className="stack">
               <div className="h3">Reviewing {lc} lines of {lang}</div>
+              <Progress steps={REVIEW_STEPS} current={streamingText ? 1 : 0} />
               {streamingText ? (
-                <div className="codepanel codepanel-ro" style={{ maxHeight: 220 }}>
-                  <pre>{streamingText.slice(-400)}</pre>
-                </div>
-              ) : (
                 <>
-                  <p className="muted">Connecting to the AI model</p>
-                  <div className="skel" style={{ width: "100%" }} />
-                  <div className="skel" style={{ width: "85%" }} />
-                  <div className="skel" style={{ width: "70%" }} />
+                  <p className="muted">{findingsSoFar} {findingsSoFar === 1 ? "finding" : "findings"} so far</p>
+                  <div className="codepanel codepanel-ro" style={{ maxHeight: 220 }}>
+                    <pre>{streamingText.slice(-400)}</pre>
+                  </div>
                 </>
+              ) : (
+                <SkeletonLines label="Connecting to the AI model" />
               )}
-            </div>
+            </Card>
           )}
 
           {result && (

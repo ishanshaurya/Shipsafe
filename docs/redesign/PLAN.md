@@ -61,6 +61,7 @@ Sync point 2: same merge procedure. After the merge you apply any new migrations
 
 ### Wave 3: hardening
 **A, phase A3:** UI primitives (refactor-sequence item 5) and loading/error states audit. A holds the dependency baton.
+- Status: Done, commits 4e37390 .. ec30bb0, no new packages. Primitives in `src/shared/ui/`; every tool, Regulations, Dashboard and Report has progress, error with retry, and empty states. Gate: lint, `src` tests, build and audit green. `tests/api/contract.test.js` was already red on `redesign/main` (see status/a.md Requests).
 **B, phase B3:** structured JSON logging in the API (request id, user id hash, route, status, latency, never prompts or tokens).
 **C, phase C3:** post-deploy health check script, cost-alert notes for provider keys, `docs/redesign/testing.md`.
 Sync point 3: full merge, e2e on preview, then you decide on prod.

@@ -1,20 +1,18 @@
-import { useId } from "react"
-import { Loader2 } from "lucide-react"
-import Notice from "../../shared/components/Notice"
+import Badge from "../../shared/ui/Badge"
+import Button from "../../shared/ui/Button"
+import Card from "../../shared/ui/Card"
+import ErrorState from "../../shared/ui/ErrorState"
+import Field from "../../shared/ui/Field"
+import Notice from "../../shared/ui/Notice"
 
 const formatSize = (bytes) => (bytes < 1024 ? `${bytes} B` : `${(bytes / 1024).toFixed(1)} KB`)
-
-function Busy({ loading, children }) {
-  return loading ? <><Loader2 size={16} className="spin" aria-hidden="true" /> {children}</> : children
-}
 
 // GitHub import with the two-step file picker. Shared by Debugger and Audit; state comes from useRepoImport.
 export default function RepoImport({
   url, onUrl, onChoose, onQuick, quickLabel, scanLabel,
   loading, fileList, selected, onSelected, repo, onScan, onCancel,
-  error, onDismissError, info,
+  error, onDismissError, onRetry, info,
 }) {
-  const id = useId()
   const hasUrl = !!url.trim()
   const totalSize = fileList
     ? fileList.filter((f) => selected.includes(f.path)).reduce((s, f) => s + f.size, 0)
@@ -23,17 +21,14 @@ export default function RepoImport({
 
   return (
     <div>
-      <label className="label" htmlFor={id}>Import from GitHub</label>
-      <div className="field-row">
-        <input
-          id={id} className="field" value={url} placeholder="https://github.com/owner/repo"
-          onChange={(e) => onUrl(e.target.value)}
-          onKeyDown={(e) => e.key === "Enter" && onChoose()}
-        />
-        <button type="button" className="btn btn-secondary" onClick={onChoose} disabled={loading || !hasUrl}>
-          <Busy loading={loading && !fileList}>Choose files</Busy>
-        </button>
-      </div>
+      <Field
+        label="Import from GitHub" value={url} placeholder="https://github.com/owner/repo"
+        onChange={(e) => onUrl(e.target.value)}
+        onKeyDown={(e) => e.key === "Enter" && onChoose()}
+        action={
+          <Button variant="secondary" onClick={onChoose} loading={loading && !fileList} disabled={loading || !hasUrl}>Choose files</Button>
+        }
+      />
       <div style={{ marginTop: 8 }}>
         <button type="button" className="link-btn" onClick={onQuick} disabled={loading || !hasUrl} style={{ opacity: loading || !hasUrl ? 0.5 : 1 }}>
           {quickLabel}
@@ -41,17 +36,17 @@ export default function RepoImport({
       </div>
 
       {fileList && (
-        <div className="panel picker">
+        <Card className="picker">
           <div className="panel-head">
             <div>
               <div style={{ fontWeight: 600 }}>{repo?.name}</div>
               <div className="small muted">{fileList.length} files found</div>
             </div>
             <div className="inline">
-              <button type="button" className="btn btn-ghost btn-sm" onClick={() => onSelected(fileList.filter((f) => f.autoSelected).map((f) => f.path))}>Select recommended</button>
-              <button type="button" className="btn btn-ghost btn-sm" onClick={() => onSelected(allSelected ? [] : fileList.map((f) => f.path))}>
+              <Button variant="ghost" size="sm" onClick={() => onSelected(fileList.filter((f) => f.autoSelected).map((f) => f.path))}>Select recommended</Button>
+              <Button variant="ghost" size="sm" onClick={() => onSelected(allSelected ? [] : fileList.map((f) => f.path))}>
                 {allSelected ? "Clear selection" : "Select all"}
-              </button>
+              </Button>
             </div>
           </div>
           <div className="picker-list">
@@ -61,7 +56,7 @@ export default function RepoImport({
                 <label key={f.path} className="picker-file">
                   <input type="checkbox" checked={checked} onChange={() => onSelected(checked ? selected.filter((x) => x !== f.path) : [...selected, f.path])} />
                   <span className="picker-path" title={f.path}>{f.path}</span>
-                  {f.autoSelected && <span className="small muted">Recommended</span>}
+                  {f.autoSelected && <Badge>Recommended</Badge>}
                   <span className="small muted">{formatSize(f.size)}</span>
                 </label>
               )
@@ -72,16 +67,14 @@ export default function RepoImport({
               {selected.length} {selected.length === 1 ? "file" : "files"} selected{totalSize > 0 && ` (${formatSize(totalSize)})`}
             </span>
             <div className="inline">
-              <button type="button" className="btn btn-ghost btn-sm" onClick={onCancel}>Cancel</button>
-              <button type="button" className="btn btn-primary btn-sm" onClick={onScan} disabled={!selected.length || loading}>
-                <Busy loading={loading}>{scanLabel}</Busy>
-              </button>
+              <Button variant="ghost" size="sm" onClick={onCancel}>Cancel</Button>
+              <Button size="sm" onClick={onScan} loading={loading} disabled={!selected.length}>{scanLabel}</Button>
             </div>
           </div>
-        </div>
+        </Card>
       )}
 
-      {error && <div style={{ marginTop: 12 }}><Notice tone="error" title="Import failed" onDismiss={onDismissError}>{error}</Notice></div>}
+      {error && <div style={{ marginTop: 12 }}><ErrorState title="Import failed" onRetry={onRetry} onDismiss={onDismissError}>{error}</ErrorState></div>}
       {info && !fileList && (
         <div style={{ marginTop: 12 }}>
           <Notice>

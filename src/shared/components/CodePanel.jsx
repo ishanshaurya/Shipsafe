@@ -1,4 +1,5 @@
 import { useId, useState } from "react"
+import Button from "../ui/Button"
 
 function useCopied() {
   const [copied, setCopied] = useState(false)
@@ -23,9 +24,9 @@ export default function CodePanel({ label, value, onChange, placeholder, lineNum
         <span className="inline">
           {right}
           {copy && (
-            <button type="button" className="btn btn-onink btn-sm" onClick={() => doCopy(value)}>
+            <Button variant="onink" size="sm" onClick={() => doCopy(value)}>
               {copied ? "Copied" : "Copy"}
-            </button>
+            </Button>
           )}
         </span>
       </div>
@@ -48,9 +49,9 @@ export function FixPanel({ text }) {
     <div className="codepanel">
       <div className="codepanel-bar">
         <span>Fix</span>
-        <button type="button" className="btn btn-onink btn-sm" onClick={() => doCopy(text)}>
+        <Button variant="onink" size="sm" onClick={() => doCopy(text)}>
           {copied ? "Copied" : "Copy fix"}
-        </button>
+        </Button>
       </div>
       <div className="codepanel-ro"><pre>{text}</pre></div>
     </div>

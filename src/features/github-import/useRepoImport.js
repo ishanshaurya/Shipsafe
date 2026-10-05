@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useRef, useState } from "react"
 import { importRepo, listRepoFiles, fetchRepoFiles } from "./githubImport"
 
 /**
@@ -15,10 +15,12 @@ export function useRepoImport({ onImported }) {
   const [fileList, setFileList] = useState(null)     // null = not fetched, [] = fetched
   const [selected, setSelected] = useState([])       // paths of checked files
   const [repo, setRepo] = useState(null)             // repo info from the list call
+  const lastAction = useRef(null)                    // what Try again repeats
 
   // Quick path: server auto-selects files and returns their combined code.
   const quick = async () => {
     if (!url.trim() || loading) return
+    lastAction.current = quick
     setLoading(true); setError(null); setInfo(null); setFileList(null)
     const { data, error: importError } = await importRepo(url)
     setLoading(false)
@@ -30,6 +32,7 @@ export function useRepoImport({ onImported }) {
   // Picker step 1: file tree only, recommended files pre-checked.
   const choose = async () => {
     if (!url.trim() || loading) return
+    lastAction.current = choose
     setLoading(true); setError(null); setInfo(null); setFileList(null)
     const { data, error: listError } = await listRepoFiles(url)
     setLoading(false)
@@ -42,6 +45,7 @@ export function useRepoImport({ onImported }) {
   // Picker step 2: fetch only the checked files.
   const scanSelected = async () => {
     if (!selected.length || loading) return
+    lastAction.current = scanSelected
     setLoading(true); setError(null)
     const { data, error: fetchError } = await fetchRepoFiles(url, selected)
     setLoading(false)
@@ -66,6 +70,7 @@ export function useRepoImport({ onImported }) {
       onCancel: () => setFileList(null),
       error,
       onDismissError: () => setError(null),
+      onRetry: () => lastAction.current?.(),
       info,
     },
   }
