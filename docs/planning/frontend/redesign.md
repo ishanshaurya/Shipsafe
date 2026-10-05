@@ -5,7 +5,7 @@ Refactor item 5 (UI primitives) is covered by F2 below. Tool-page restyle waits 
 > Note: written before Deploy Checker and Stress Test were removed (2026-10-02). They are parked; see [`parked-tools.md`](parked-tools.md). The tool set is now two groups: Code review and AI regulation.
 
 ## Status (2026-10-02)
-Built: tokens (F1), Verdict module (`src/utils/verdict.js`, thresholds 80 / 60 and tested), tool registry, Flag, VerdictBanner, Finding, CodePanel, RepoImport, Notice, shell rail + drawer (F3), Landing (F4), Dashboard (F5), Debugger / Audit / Loopholes (F6), Regulations (F7), Report / Login / 404 (F8), and ScoreRing is removed. Tool pages were restyled only; Debugger still has its own fetch logic (not on `scanRun` yet). Not done: F9 QA at 375px and a screen-reader pass, `shipReadiness.js` still carries its own 40 band and verdict labels, open decisions below.
+Built: tokens (F1), Verdict module (`src/shared/verdict.js`, thresholds 80 / 60 and tested), tool registry, Flag, VerdictBanner, Finding, CodePanel, RepoImport, Notice, shell rail + drawer (F3), Landing (F4), Dashboard (F5), Debugger / Audit / Loopholes (F6), Regulations (F7), Report / Login / 404 (F8), and ScoreRing is removed. Tool pages were restyled only; Debugger still has its own fetch logic (not on `scanRun` yet). Not done: F9 QA at 375px and a screen-reader pass, `shipReadiness.js` still carries its own 40 band and verdict labels, open decisions below.
 The Tailwind Vite plugin is not installed, so tokens are plain `:root` variables, not `@theme`.
 
 ## Design source of truth
@@ -30,7 +30,7 @@ Decisions already made: light theme · F1–F2 first · tool-page restyle (F6) w
 - [ ] One shared reveal keyframe set. Leave per-page keyframes until each page migrates.
 - [ ] `npm run lint`, `npm test`, `npm run build` clean; app still renders.
 
-## F2. Deep modules + primitives  _(files go flat in `src/components/` / `src/utils/` — no new folders until item 6)_
+## F2. Deep modules + primitives  _(shared primitives in `src/shared/components/`)_
 - [ ] **Verdict module** (candidate 1, Strong): one owner for score → cleared/held/blocked and severity → tone/label/shape. Replaces 7 private maps: `Debugger.jsx:22`, `Report.jsx:29`, `Regulations.jsx:73`, `Audit.jsx:138`, `NextSteps.jsx:10`, `ScoreRing` thresholds, `shipReadiness.js:107`. Label + shape ship with color (not color alone). Unit-test the thresholds (80 / 60 / 40).
 - [ ] **Tool registry module** (candidate 2, Strong): the four tools with group (Code review / AI regulation), path, name, one-line purpose, icon. Replaces `Layout.jsx:9` NAV, `Landing.jsx:6` FEATURES, `Dashboard.jsx:19` actions; check `crossToolSuggestions.js`. Keep separate from item 3 (prompt/scoring per tool) or merge deliberately.
 - [ ] Restyle `ScoreRing`: keep props (5 callers), default colors from the Verdict module, stencil number.

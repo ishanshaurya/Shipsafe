@@ -5,7 +5,7 @@ Status: in progress. Part of the refactor sequence in [`../plans/refactor-sequen
 ## Deepen scan run  _(in progress — phases 0–2 done)_
 
 Goal: one module owns `call AI → normalize → score → suggestions → save`. Pages keep only UI state (loading/result/expand) and per-tool auto-expand rules.
-New file: `src/services/scanRun.js` (+ `scanRun.test.js`). No new folders — folder reshape is item 6.
+File: `src/features/scan/scanRun.js` (+ `scanRun.test.js`); moved there in the folder reshape (item 6).
 
 Findings from reading the code (what the plan is based on):
 - 3 pages (Debugger, Audit, Loopholes) repeat the same ~15-line sequence; only Debugger streams, embeds, and finds similar scans.
@@ -29,13 +29,13 @@ Findings from reading the code (what the plan is based on):
 - Verified: lint 0 errors, 35 tests, build. **Not yet manually checked** (needs `npx vercel dev` + a signed-in user): run each tool, confirm the scan row appears in Dashboard history.
 
 ### Phase 3 — Migrate Debugger (streaming + embeddings)
-- [ ] Debugger via `runScan({ stream: true, onChunk })`; similar-scans via `findSimilarScans`. Verify streaming text still renders.
+- [x] Debugger via `runScan({ stream: true, onChunk })`; similar-scans via `findSimilarScans`. The inline save and embed code in the page is gone. **Not yet manually checked:** streaming text rendering and the similar-scans panel need `npx vercel dev` and a signed-in user.
 
 ### Phase 4 — Cleanup & verify
 - [ ] Remove dead code (per-page save blocks, unused imports); update the "ONLY FILE" header comments in `scanService.js` if now inaccurate.
 - [ ] `npm run lint`, `npm test`, `npm run build` clean.
 - [ ] Manual check: each tool runs logged-in and logged-out; scan appears in Dashboard history; Debugger streams and shows similar scans.
+- [x] Split `supabaseService.js` by domain next to its feature (refactor item 4, data half): `scanHistory`, `reportService`, `shared/authHeader`.
 
 ## Next: one module per tool (refactor item 3)
 - [ ] `debugger`, `audit`, `loopholes` (and later `deploy-check`, `stress-test`) each own prompt, normalize, score, suggestions, label; the shared scan run consumes them. Starts after phases 2–3 above.
-- [ ] Split `supabaseService.js` by domain next to its feature (refactor item 4, data half).

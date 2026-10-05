@@ -26,15 +26,16 @@ Docs: each lane writes only `docs/redesign/status/<lane>.md` plus the docs for i
 ## Waves and phases
 
 ### Wave 0: integrator setup (this session plus you, before lanes start)
-- [ ] You rotate the leaked Supabase service key and update `SUPABASE_SERVICE_ROLE` on Vercel.
-- [ ] You tell the integrator to commit the pending GitHub-import fix. Then the integrator tags `baseline-pre-redesign` on that commit and creates branch `redesign/main`.
-- [ ] Integrator creates the three worktrees from `redesign/main`.
-- [ ] You provide a test account (email and password) as env vars `E2E_EMAIL` and `E2E_PASSWORD` in your shell only. Never in files.
+- [x] You rotate the leaked Supabase service key and update `SUPABASE_SERVICE_ROLE` on Vercel. (done by user)
+- [x] You tell the integrator to commit the pending GitHub-import fix. Then the integrator tags `baseline-pre-redesign` on that commit and creates branch `redesign/main`. (commit 17c9f70, tag `baseline-pre-redesign`)
+- [x] Integrator creates the three worktrees from `redesign/main`.
+- [ ] You provide a test account (email and password) as env vars `E2E_EMAIL` and `E2E_PASSWORD` in your shell only. Never in files. DEFERRED 2026-10-05: signed-in e2e skipped, see status/c.md.
 - Gate: tag exists, three worktrees exist, `scripts/gate.sh` is green on `redesign/main`.
 
 ### Wave 1: foundations (all three lanes in parallel, no overlap)
 **A, phase A1: one fetch path.** Pages stop calling `/api/*` directly. Debugger and Audit use `githubImport` and `scanRun`. Inline embed logic in `Debugger.jsx` goes away (refactor-sequence items 1 and 2).
 - Done when: `grep -rn 'fetch("/api' src` matches only files in `src/services/`. Existing tests pass. New unit tests cover `githubImport` 401 handling and `findSimilarScans` sending the auth header.
+- Status: Done, commit 6f45c62, gate green.
 
 **B, phase B1: database in git.** Dump the real schema and policies read-only into new numbered files under `supabase/migrations/` (`scan_history`, `reports`, `regulations`, `users` if it exists, `match_scans`, indexes). Add `supabase/tests/rls.sql` that asserts: user A cannot read, update or delete user B's `scan_history`, anonymous cannot read a private report, anyone can read a public report. Record what exists in prod versus what the code expects in `docs/redesign/status/b.md`.
 - Done when: migrations replay cleanly on a fresh local Supabase (`supabase start`, `supabase db reset`) and `rls.sql` passes. No prod writes.
@@ -47,6 +48,7 @@ Sync point 1: all three lanes green. Integrator merges A, B, C into `redesign/ma
 ### Wave 2: structure
 **A, phase A2: feature folders.** `src/features/{scan,tools,github-import,regulations,reports,auth,dashboard,landing}/`, `src/shared/`, `src/app/` (refactor-sequence item 6), one tool module per tool (item 3), split `supabaseService.js` by domain (item 4). Add an error boundary. Move in small commits, one folder at a time, gate green after each.
 - Done when: no behavior change (e2e green), no file over about 400 lines, no page imports Supabase or calls `fetch("/api")`.
+- Status: Done, commits dc92623 / 9a68b9f / fe560e8, gate green. Item 3 (one module per tool) not done.
 
 **B, phase B2: API layer.** Split `api/_lib/` into `auth.js`, `rateLimit.js`, `providers.js`, `validate.js`. Add rate limits to `/api/embed` and `/api/github` using the same `increment_rate_limit` function with separate buckets (new migration, applied by you). Add API tests in `tests/api/` with mocked `fetch`: 401, 400, 429, provider failover, SSE framing, embed ownership filter, GitHub name validation. B holds the dependency baton.
 - Done when: contracts unchanged (a contract test replays every example in CONTRACTS.md), tests cover each error code, gate green.

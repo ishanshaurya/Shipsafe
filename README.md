@@ -61,7 +61,7 @@ Design decisions worth knowing:
 
 - **Serverless proxy.** The browser calls `/api/gemini` and the function holds the provider keys, so no key appears in frontend code. The system prompt for each tool also lives on the server. The client sends only a tool name and the user's input.
 - **Provider pool.** Requests rotate across whichever providers have a key configured. A provider that returns an error goes into a cooldown (60 seconds for a rate limit, 10 minutes for a bad key) and the request falls through to the next one.
-- **One service layer.** `scanService.js` is the only file that calls `/api/gemini`. It builds prompts, parses JSON, validates each tool's response shape and normalizes it for the pages. `supabaseService.js` plays the same role for the database, and `githubImport.js` for `/api/github`.
+- **One service layer.** `scanService` builds prompts, parses JSON, validates each tool's response shape and normalizes it for the pages; with `regulationsService` it is the only code that calls `/api/gemini`. `scanHistory` and `reportService` own the database tables, and `githubImport` owns `/api/github`. `src/app/architecture.test.js` enforces who may call `/api/*` or the Supabase client.
 - **Server-side auth on every API route.** `/api/gemini`, `/api/github` and `/api/embed` all verify the caller's Supabase session through the shared helper in `api/_lib/auth.js`. A request without a valid token gets a 401, whatever the frontend does.
 - **Row Level Security.** Users see only their own scan history. The rate-limit counter is scoped to `auth.uid()` the same way.
 
@@ -97,7 +97,7 @@ Three problems found after the product was already live.
 
 ### Half the AI tools never called the AI
 
-`scanService.js` exposes one function, `callAI`, and every tool is supposed to go through it. Debugger did. Audit, Deploy Check and Loophole Finder each had a page-local `getMock*()` function that matched regexes against the input and returned results dressed up as AI output.
+`scanService` exposes `callAI`, and every tool is supposed to go through it. Debugger did. Audit, Deploy Check and Loophole Finder each had a page-local `getMock*()` function that matched regexes against the input and returned results dressed up as AI output.
 
 The real schemas already existed in `callAI`'s validator, and nothing called them. Wiring the pages up took more than one line because the mocks and the AI schema had drifted apart. Audit's mock returned five UI category keys with per-issue severity and fix fields. The AI schema used different category names and returned issues as plain strings. The fix was to rewrite the prompt schemas around what the UI needs, then add a thin normalizer so the pages stayed untouched.
 
@@ -178,14 +178,17 @@ Shipsafe/
 │   ├── github.js           # GitHub repo reader
 │   └── embed.js            # Embeddings and similar-scan search
 ├── src/
-│   ├── components/         # Layout, Finding, Flag, RepoImport, ReportButton, ...
-│   ├── pages/              # Landing, Login, Dashboard, Debugger, Audit,
-│   │                       # Loopholes, Regulations, Report
-│   ├── services/           # scanService, scanRun, supabaseService, githubImport
-│   ├── hooks/              # AuthProvider, useAuth, useReport
-│   ├── utils/              # verdict, shipReadiness, crossToolSuggestions, toolRegistry
-│   ├── data/mockResults.js # Sample data for the Regulations fallback
-│   └── lib/supabase.js     # Supabase client
+│   ├── app/                # App routes, Layout, ErrorBoundary, architecture.test.js
+│   ├── features/
+│   │   ├── auth/           # authService, AuthProvider, Login
+│   │   ├── scan/           # scanService, scanRun, scanHistory, crossToolSuggestions
+│   │   ├── tools/          # Debugger, Audit, Loopholes pages
+│   │   ├── github-import/  # githubImport, RepoImport
+│   │   ├── regulations/    # Regulations page, regulationsService
+│   │   ├── reports/        # Report page, reportService, ReportButton
+│   │   ├── dashboard/      # Dashboard, shipReadiness
+│   │   └── landing/        # Landing
+│   └── shared/             # supabaseClient, authHeader, toolRegistry, verdict, components/
 ├── supabase/migrations/    # SQL schema changes
 ├── docs/                   # Overview, API notes, design, plans, decisions
 ├── .github/workflows/      # CI
