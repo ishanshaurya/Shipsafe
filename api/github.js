@@ -1,4 +1,5 @@
 import { verifyUser } from "./_lib/auth.js"
+import { parseGitHubUrl } from "./_lib/validate.js"
 
 // api/github.js — Vercel Serverless Function (v2)
 // Uses Git Trees API for full recursive repo scanning
@@ -32,53 +33,6 @@ const SKIP_FILES = [
 
 const MAX_FILES = 25
 const MAX_FILE_SIZE = 60000 // 60KB
-
-// GitHub owner/repo charset — anything else could rewrite the API path
-const NAME_RE = /^[A-Za-z0-9._-]+$/
-const isSafeName = (n) => NAME_RE.test(n) && n !== "." && n !== ".."
-
-function parseGitHubUrl(url) {
-  // Normalise — strip protocol, trailing slashes, whitespace
-  const cleaned = url.trim().replace(/^https?:\/\//, "").replace(/\/$/, "")
-
-  // Must start with github.com
-  if (!cleaned.startsWith("github.com/")) return null
-
-  const parts = cleaned.replace("github.com/", "").split("/")
-
-  // Need at least owner/repo
-  if (parts.length < 2) return null
-
-  const owner = parts[0]
-  const repo = parts[1].replace(/\.git$/, "")
-  if (!isSafeName(owner) || !isSafeName(repo)) return null
-
-  // Default result
-  const result = { owner, repo, branch: null, subdir: null, singleFile: null }
-
-  // github.com/owner/repo/blob/branch/path/to/file.js → single file
-  if (parts[2] === "blob" && parts.length >= 5) {
-    result.branch = parts[3]
-    result.singleFile = parts.slice(4).join("/")
-    return result
-  }
-
-  // github.com/owner/repo/tree/branch/optional/subdir → branch + optional subdir
-  if (parts[2] === "tree" && parts.length >= 4) {
-    result.branch = parts[3]
-    if (parts.length > 4) result.subdir = parts.slice(4).join("/")
-    return result
-  }
-
-  // github.com/owner/repo/tree/branch (no subdir)
-  if (parts[2] === "tree" && parts.length === 4) {
-    result.branch = parts[3]
-    return result
-  }
-
-  // Anything else (issues, pulls, etc.) — just use owner/repo
-  return result
-}
 
 async function githubFetch(path, token) {
   const headers = {

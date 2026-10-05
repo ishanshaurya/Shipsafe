@@ -11,14 +11,8 @@
 
 import { createClient } from "@supabase/supabase-js"
 import { verifyUser } from "./_lib/auth.js"
-
-const EMBEDDING_MODEL = "text-embedding-004"
-const EMBEDDING_DIMENSIONS = 768
-const MAX_TEXT_CHARS = 10_000
-const MAX_SIMILAR = 10
-
-const isEmbedding = (v) =>
-  Array.isArray(v) && v.length === EMBEDDING_DIMENSIONS && v.every((n) => typeof n === "number" && Number.isFinite(n))
+import { generateEmbedding } from "./_lib/providers.js"
+import { isEmbedding, MAX_TEXT_CHARS, clampSimilarLimit } from "./_lib/validate.js"
 
 // Service role bypasses RLS, so every query below filters on the verified
 // user.id explicitly. Without it, fall back to the caller-scoped client.
@@ -70,7 +64,7 @@ export default async function handler(req, res) {
     if (!isEmbedding(embedding)) {
       return res.status(400).json({ error: "Valid embedding required" })
     }
-    const matchCount = Math.min(Math.max(parseInt(limit, 10) || 5, 1), MAX_SIMILAR)
+    const matchCount = clampSimilarLimit(limit)
 
     try {
       // pgvector cosine distance search, scoped by match_scans to auth.uid()
@@ -123,34 +117,4 @@ export default async function handler(req, res) {
   }
 
   return res.status(400).json({ error: "Invalid action. Use: generate, similar, or save" })
-}
-
-async function generateEmbedding(text, apiKey) {
-  // Truncate to ~2000 chars to stay within embedding model limits
-  const truncated = text.slice(0, 2000)
-
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/${EMBEDDING_MODEL}:embedContent?key=${apiKey}`
-
-  const response = await fetch(url, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      model: `models/${EMBEDDING_MODEL}`,
-      content: { parts: [{ text: truncated }] },
-    }),
-  })
-
-  if (!response.ok) {
-    const errText = await response.text().catch(() => "")
-    throw new Error(`Gemini embedding returned ${response.status}: ${errText.slice(0, 200)}`)
-  }
-
-  const data = await response.json()
-  const values = data.embedding?.values
-
-  if (!values || !Array.isArray(values)) {
-    throw new Error("Gemini returned no embedding values")
-  }
-
-  return values
 }
