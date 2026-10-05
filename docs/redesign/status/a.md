@@ -1,11 +1,16 @@
 # Lane A status
 
-- Phase: A2 (feature folders)
-- State: DONE in code (gate green, committed on redesign/a-frontend). Item 3 (one module per tool) NOT done, see Notes.
+- Phase: Wave 2, A2 leftovers (one module per tool, shared GitHub picker)
+- State: DONE (gate green, committed on redesign/a-frontend)
 - Last update: 2026-10-05
 - Branch: redesign/a-frontend
 
 ## Done
+- Wave 2 leftovers (after `git merge --ff-only redesign/main`):
+  - `useRepoImport` (`features/github-import/`) replaces the duplicated picker state and handlers in Debugger and Audit (077a74a). `RepoImport` markup and labels untouched.
+  - One module per tool (f72ef04, 94545ba): `features/{debugger,audit,loopholes}/<tool>Tool.js` own prompt, validate, normalize, score, input field and suggestions, registered in `features/scan/toolModules.js`. `scanService` and `scanRun` dispatch through it. `extractScore` and `crossToolSuggestions` removed (folded in). Pages moved next to their modules; `features/tools/` is gone. Regulations already was its own module (`regulationsService`), left as is.
+  - Selectors check: every label and button name used by `e2e/tools.spec.js` still exists in `src/`; no label, aria or placeholder line changed. Signed-in e2e still not run (deferred, see c.md).
+  - Gate: lint clean, 50 of 50 tests, build OK, audit 0.
 - A1: all `/api/*` calls go through services (commit 6f45c62).
 - A2 steps 1-3 (dc92623): files moved into `src/{app,shared,features/*}` by `git mv` with every import and test mock rewritten from a move map. `supabaseService` split into `features/scan/scanHistory.js`, `features/reports/reportService.js`, `shared/authHeader.js`. Regulations code left `scanService` for `features/regulations/`. Mock data moved next to its only user.
 - Step 4: `features/auth/authService.js` is now the only Supabase Auth caller. Login and AuthProvider use it. 3 tests added.
@@ -16,13 +21,12 @@
 - Gate: lint clean, 49 of 49 tests, build OK, audit 0.
 
 ## Notes
-- Refactor item 3 (one module per tool, each owning normalize, score, suggestions, label) is not done. It means moving the normalizers out of `scanService`, which is a design change beyond a safe move. Left for a later wave if wanted.
-- The loading, error and file-picker state is still duplicated in Debugger and Audit (candidate for one hook).
-- ErrorBoundary has no automated test (node test env, no DOM). Needs the signed-in e2e or a manual check.
-- No signed-in browser check has run for any of A1 or A2. Manual click-through needed before the preview is trusted.
+- Per-tool display label still lives in `shared/toolRegistry` (and a local `SCAN_NAME` in Debugger for similar scans), not in the tool modules.
+- ErrorBoundary and the new hook have no automated test (node test env, no DOM). Needs the signed-in e2e or a manual check.
+- No signed-in browser check has run for any of A1, A2 or Wave 2. Manual click-through needed before the preview is trusted.
 
 ## Blocked
 (nothing for lane A)
 
 ## Requests
-(none open) Docs for the A2 layout are updated: `docs/redesign/CONTRACTS.md` "Client service surface", root `AGENTS.md` layout rules, README project structure, and `docs/redesign/PLAN.md` (Wave 0 ticks, A1/A2 status lines). Other stale `src/*` paths in `docs/` fixed too.
+(none open) Integrator: CONTRACTS.md and PLAN.md already updated for the new module homes.

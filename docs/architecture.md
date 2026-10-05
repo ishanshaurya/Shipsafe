@@ -10,9 +10,9 @@ Frontend (`src/`), grouped by feature. `src/main.jsx` mounts `app/App.jsx`; `ind
 |---|---|
 | `app/` | `App.jsx` (routes), `Layout.jsx` (rail/drawer), `ErrorBoundary.jsx`, `architecture.test.js` (boundary rules) |
 | `features/auth/` | `authService` (only caller of Supabase Auth), `AuthProvider`, `useAuth`, `ProtectedRoute`, `Login` |
-| `features/scan/` | `scanService` (only caller of `/api/gemini`: prompts, parse, validate, normalizers, `extractScore`), `scanRun` (one scan start to finish), `scanHistory` (`scan_history` table and embeddings), `crossToolSuggestions`, `NextSteps` |
+| `features/scan/` | `scanService` (only caller of `/api/gemini` for the scan tools: request, parse, dispatch to the tool's validator), `scanRun` (one scan start to finish), `scanHistory` (`scan_history` table and embeddings), `toolModules` (registry of the tool modules below), `NextSteps` |
 | `features/github-import/` | `githubImport` (only caller of `/api/github`, never throws), `RepoImport` (URL field and file picker) |
-| `features/tools/` | `Debugger`, `Audit`, `Loopholes` pages |
+| `features/debugger/`, `features/audit/`, `features/loopholes/` | One folder per tool: the page plus a pure `<tool>Tool.js` that owns the user prompt, response validation, normalizer, score, input field and next-step suggestions. `github-import/useRepoImport` holds the repo picker state shared by Debugger and Audit |
 | `features/regulations/` | `Regulations` page, `regulationsService` (AI query, normalize, flagged fallback), `mockRegulation` |
 | `features/reports/` | `Report` (public viewer), `ReportButton`, `useReport`, `reportService` (`reports` table) |
 | `features/dashboard/` | `Dashboard`, `shipReadiness` (weighted score), `mockScans` |
@@ -31,7 +31,7 @@ Adding a new API caller or Supabase user means editing the allowlist in that tes
 1. Page calls `runScan({ tool, payload, user })` in `scanRun`, which calls `callAI` or `callAIStream` in `scanService`.
 2. `scanService` POSTs `/api/gemini` with the user's Supabase access token.
 3. The function verifies the session, applies a per-user rate limit, picks the system prompt for `tool` server-side, and tries providers in rotation.
-4. `scanService` parses the JSON, validates it, normalizes it for the page.
+4. `scanService` parses the JSON and validates it with the tool's module; `scanRun` normalizes it, scores it and asks the module for next steps.
 5. `scanRun` saves the scan via `saveScan` (`scan_history`) without blocking the page; Debugger scans are also embedded via `/api/embed`, and `findSimilarScans` looks up similar past scans.
 
 ## External services
