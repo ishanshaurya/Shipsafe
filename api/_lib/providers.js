@@ -106,25 +106,28 @@ async function callProvider(provider, systemPrompt, userPrompt) {
 
 // Tries providers in rotation order, falling through on failure. Only
 // throws once every configured provider has failed or is cooling down.
-export async function generateWithFallback(systemPrompt, userPrompt) {
+export async function generateWithFallback(systemPrompt, userPrompt, log) {
   const order = orderedProviders()
   if (order.length === 0) throw { status: 503, message: "All providers are unavailable or unconfigured" }
 
   let lastErr
-  for (const provider of order) {
+  for (const [i, provider] of order.entries()) {
+    const t0 = performance.now()
     try {
       const content = await callProvider(provider, systemPrompt, userPrompt)
+      log?.stage("provider", performance.now() - t0, { provider: provider.name, ok: true, attempt: i + 1 })
       return { content, provider: provider.name }
     } catch (err) {
       lastErr = err
       markCooldown(provider.name, cooldownFor(err.status))
-      console.error(`[gemini] provider "${provider.name}" failed:`, err.status, err.message)
+      log?.stage("provider", performance.now() - t0, { provider: provider.name, ok: false, status: err.status, attempt: i + 1 })
     }
   }
   throw lastErr
 }
 
-export async function streamProvider(provider, systemPrompt, userPrompt, res) {
+export async function streamProvider(provider, systemPrompt, userPrompt, res, log) {
+  const t0 = performance.now()
   const apiKey = process.env[provider.envKey]
 
   const upstream =
@@ -161,6 +164,7 @@ export async function streamProvider(provider, systemPrompt, userPrompt, res) {
     throw { status: upstream.status, message: `${provider.name} returned ${upstream.status}: ${errText.slice(0, 200)}` }
   }
 
+  const ttfbMs = performance.now() - t0
   res.setHeader("Content-Type", "text/event-stream")
   res.setHeader("Cache-Control", "no-cache")
   res.setHeader("X-Accel-Buffering", "no")
@@ -193,6 +197,7 @@ export async function streamProvider(provider, systemPrompt, userPrompt, res) {
 
   res.write("data: [DONE]\n\n")
   res.end()
+  log?.stage("provider", performance.now() - t0, { provider: provider.name, ok: true, ttfbMs })
 }
 
 export async function generateEmbedding(text, apiKey) {

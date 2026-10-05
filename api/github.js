@@ -1,4 +1,5 @@
 import { verifyUser } from "./_lib/auth.js"
+import { withLog } from "./_lib/log.js"
 import { checkRateLimit } from "./_lib/rateLimit.js"
 import { parseGitHubUrl } from "./_lib/validate.js"
 
@@ -135,7 +136,7 @@ async function fetchFileContent(path, owner, repo, token) {
   }
 }
 
-export default async function handler(req, res) {
+export default withLog("github", async function handler(req, res, log) {
   res.setHeader("Access-Control-Allow-Origin", "https://shipsafe-app.vercel.app")
   res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS")
   res.setHeader("Access-Control-Allow-Headers", "Content-Type")
@@ -145,10 +146,12 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: "Method not allowed" })
   }
 
-  const { user, supabase } = await verifyUser(req)
+  log.setAction(req.body?.mode === "list" ? "list" : "import")
+  const { user, supabase } = await log.time("auth", () => verifyUser(req))
   if (!user) return res.status(401).json({ error: "Sign in required" })
+  log.setUser(user)
 
-  const limit = await checkRateLimit(supabase, { bucket: "github", max: RATE_LIMIT_MAX, errorStatus: 502 })
+  const limit = await checkRateLimit(supabase, { bucket: "github", max: RATE_LIMIT_MAX, errorStatus: 502, log })
   if (!limit.ok) return res.status(limit.status).json({ error: limit.error })
 
   const { url, mode, files: selectedFiles } = req.body || {}
@@ -217,7 +220,6 @@ export default async function handler(req, res) {
 
     // If mode === "list", return file metadata objects for the picker UI
     if (mode === "list") {
-      console.log("LIST MODE sample:", JSON.stringify(selected[0]))
       return res.status(200).json({
         repo: {
           name: repoData.full_name,
@@ -271,7 +273,7 @@ export default async function handler(req, res) {
       code: combined,
     })
   } catch (err) {
-    console.error("GitHub fetch error:", err)
+    log.error("github_fetch", err)
     return res.status(502).json({ error: err.message || "Failed to fetch repo" })
   }
-}
+})

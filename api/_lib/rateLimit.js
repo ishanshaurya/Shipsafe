@@ -3,14 +3,16 @@ const WINDOW_MS = 60_000
 // Persistent per-user fixed-window limit via the increment_rate_limit RPC.
 // Each endpoint counts in its own bucket.
 // Returns { ok: true } or { ok: false, status, error } ready to send.
-export async function checkRateLimit(supabase, { bucket, max, windowMs = WINDOW_MS, errorStatus = 500 }) {
+export async function checkRateLimit(supabase, { bucket, max, windowMs = WINDOW_MS, errorStatus = 500, log }) {
   const windowStart = new Date(Math.floor(Date.now() / windowMs) * windowMs).toISOString()
+  const t0 = performance.now()
   const { data: requestCount, error } = await supabase.rpc("increment_rate_limit", {
     p_window_start: windowStart,
     p_bucket: bucket,
   })
+  log?.stage("rateLimit", performance.now() - t0, { ok: !error })
   if (error) {
-    console.error("Rate limit check failed:", error)
+    log?.error("rate_limit", error)
     return { ok: false, status: errorStatus, error: "Rate limit check failed" }
   }
   if (requestCount > max) {

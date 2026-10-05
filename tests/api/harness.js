@@ -1,6 +1,6 @@
-import { vi } from "vitest"
+import { expect, vi } from "vitest"
 
-export const USER = { id: "user-1" }
+export const USER = { id: "user-1", email: "victim@example.com" }
 export const GOOD_TOKEN = "good-token"
 export const SERVICE_KEY = "service-key"
 
@@ -94,11 +94,12 @@ export function mockRes() {
 // `rpc` defaults to "this is the user's first request in the window".
 export async function callRoute(
   route,
-  { body, token = GOOD_TOKEN, method = "POST", env = {}, fetchImpl, rpc = () => ({ data: 1, error: null }), updateResult } = {}
+  { body, token = GOOD_TOKEN, method = "POST", headers = {}, env = {}, fetchImpl, rpc = () => ({ data: 1, error: null }), updateResult } = {}
 ) {
   vi.resetModules()
-  vi.spyOn(console, "error").mockImplementation(() => {})
-  vi.spyOn(console, "log").mockImplementation(() => {})
+  const logs = []
+  vi.spyOn(console, "error").mockImplementation((...args) => logs.push({ stream: "error", args }))
+  vi.spyOn(console, "log").mockImplementation((...args) => logs.push({ stream: "log", args }))
 
   const sb = makeSupabase({ rpc, updateResult })
   vi.doMock("@supabase/supabase-js", () => ({ createClient: sb.createClient }))
@@ -106,11 +107,20 @@ export async function callRoute(
   const fetchMock = vi.fn(fetchImpl || (async () => new Response("unexpected fetch", { status: 500 })))
   vi.stubGlobal("fetch", fetchMock)
 
-  const req = { method, headers: token ? { authorization: `Bearer ${token}` } : {}, body }
+  const req = { method, headers: { ...(token ? { authorization: `Bearer ${token}` } : {}), ...headers }, body }
   const res = mockRes()
   const { default: handler } = await import(`../../api/${route}.js`)
   await handler(req, res)
-  return { res, state: sb.state, fetch: fetchMock }
+  return { res, state: sb.state, fetch: fetchMock, logs }
+}
+
+// Every console line must be one string holding one JSON object.
+export function requestLines(logs) {
+  return logs.map(({ args }) => {
+    expect(args).toHaveLength(1)
+    expect(typeof args[0]).toBe("string")
+    return JSON.parse(args[0])
+  })
 }
 
 export function resetHarness() {
