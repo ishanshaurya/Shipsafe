@@ -8,7 +8,7 @@
     "build": "vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "test": "vitest run && npm run test:api",
+    "test": "vitest run",
     "test:api": "vitest run -c tests/api/vitest.config.js",
     "test:watch": "vitest",
     "e2e": "playwright test -c e2e/playwright.config.js"
