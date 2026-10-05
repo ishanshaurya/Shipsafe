@@ -190,7 +190,7 @@ Shipsafe/
 │   │   ├── reports/        # Report page, reportService, ReportButton
 │   │   ├── dashboard/      # Dashboard, shipReadiness
 │   │   └── landing/        # Landing
-│   └── shared/             # supabaseClient, authHeader, toolRegistry, verdict, components/
+│   └── shared/             # supabaseClient, authHeader, toolRegistry, verdict, components/, ui/
 ├── supabase/migrations/    # SQL schema changes
 ├── docs/                   # Overview, API notes, design, plans, decisions
 ├── .github/workflows/      # CI

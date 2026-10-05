@@ -22,13 +22,16 @@ Only components that hide behavior or carry a shared meaning are primitives. Pla
 | **Skeleton** | row, banner | Replaces plain "Loading…" |
 | **EmptyState** | per page | One sentence + the next action |
 
+## Where they live
+Button, Card (the `panel` surface), Field (label, control, hint, error, optional action beside it), Badge, Spinner, Skeleton / SkeletonLines, EmptyState, ErrorState (Notice plus a Try again button) and Progress (named steps in a `role="status"` region, driven by `useProgressStep` when there is no real signal) are in `src/shared/ui/`. Pages use them instead of raw `btn`, `panel`, `field`, `skel` markup. Landing still carries its own `ls-btn` styles. Chip, Ledger row, Banner and CodePanel stay in `src/shared/components/`.
+
 ## State matrix (every data view)
 | State | Treatment |
 |---|---|
 | Idle | Input visible, "Load sample" for tools, results area shows what a result looks like (greyed) |
-| Loading | Debugger: streaming text in a CodePanel. Others: skeleton banner + rows and a status line ("Checking security, quality, maintainability") |
+| Loading | Every tool and Regulations: heading, named progress steps (`Progress`, announced via `role="status"`) and skeleton rows. Debugger also shows a live findings count and the streaming tail. Dashboard and Report: skeleton rows with a screen-reader label. Steps without a real signal advance on a timer, so treat them as an estimate |
 | Success | Verdict banner hoists in; critical/high rows open; announce via `aria-live` |
 | Empty result | Cleared flag + "No issues found in what you submitted." |
-| Error | What failed and what to do; input is kept; retry button. Rate limit (429): "You've reached the limit of 20 scans per minute. Try again in a minute." |
+| Error | What failed and what to do; input is kept; **Try again** button (ErrorState). Rate limit (429): "You've reached the limit of 20 scans per minute. Try again in a minute." |
 | Import (GitHub) | Importing, picker, importing selected, error; the button never sticks in loading |
 | Signed out | Tool pages are protected; redirect to Login, return after |

@@ -28,10 +28,11 @@ Request `{ action: "generate", text } | { action: "similar", embedding: number[7
 - `features/scan/scanRun`: `runScan({tool,payload,user,stream,onChunk})` returns `{result,score,suggestions,error}`; `findSimilarScans(tool,result)` returns `[]` on any failure.
 - `features/scan/scanHistory`: `saveScan`, `getScanHistory`, `attachEmbedding`, `embeddingText`.
 - `features/regulations/regulationsService`: `fetchRegulations(topic)` returns the regulation result, or the mock result when the AI call fails.
-- `features/github-import/githubImport`: `importRepo`, `listRepoFiles`, `fetchRepoFiles` return `{data,error,aborted?}` and never throw. `useRepoImport({onImported})` returns `{repoProps}` for `<RepoImport>`.
+- `features/github-import/githubImport`: `importRepo`, `listRepoFiles`, `fetchRepoFiles` return `{data,error,aborted?}` and never throw. `useRepoImport({onImported})` returns `{repoProps}` for `<RepoImport>`, including `onRetry` for the last import action.
 - `features/reports/reportService`: `saveReport`, `getReportBySlug`.
 - `features/auth/authService`: `signUp`, `signInWithPassword`, `signInWithGitHub`, `signOut`, `getCurrentUser`, `onAuthChange`.
 - `shared/authHeader`: `authHeader()`.
+- `shared/ui/*` (Button, Card, Field, Badge, Spinner, Skeleton, EmptyState, ErrorState, Notice, Progress) are presentation only; no network or Supabase access.
 - Removed in Wave 2: `extractScore` (now each tool's `score`), `crossToolSuggestions.getSuggestions` (now each tool's `suggest`).
 - Removed in A2 (no callers): `supabaseService` (split into the modules above), `getScanById`, `deleteScan`, `getRegulations`, `getRegulationById`, `getUserProfile`, `updateUserProfile`.
 

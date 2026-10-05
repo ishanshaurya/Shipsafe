@@ -17,7 +17,7 @@ Frontend (`src/`), grouped by feature. `src/main.jsx` mounts `app/App.jsx`; `ind
 | `features/reports/` | `Report` (public viewer), `ReportButton`, `useReport`, `reportService` (`reports` table) |
 | `features/dashboard/` | `Dashboard`, `shipReadiness` (weighted score), `mockScans` |
 | `features/landing/` | `Landing` |
-| `shared/` | `supabaseClient`, `authHeader`, `toolRegistry`, `verdict`, `components/` (Logo, Flag, Finding, CodePanel, VerdictBanner, Notice) |
+| `shared/` | `supabaseClient`, `authHeader`, `toolRegistry`, `verdict`, `components/` (Logo, Flag, Finding, CodePanel, VerdictBanner), `ui/` (Button, Card, Field, Badge, Spinner, Skeleton, EmptyState, ErrorState, Notice, Progress, `useProgressStep`) |
 | `api/` | `gemini.js` (AI proxy), `github.js` (repo fetcher), `embed.js` (embeddings), `_lib/auth.js` |
 | `supabase/migrations/` | Only `0001_rate_limits.sql` is on `redesign/main`; lane B is adding the rest |
 
