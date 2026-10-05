@@ -11,8 +11,12 @@
 
 import { createClient } from "@supabase/supabase-js"
 import { verifyUser } from "./_lib/auth.js"
+import { checkRateLimit } from "./_lib/rateLimit.js"
 import { generateEmbedding } from "./_lib/providers.js"
 import { isEmbedding, MAX_TEXT_CHARS, clampSimilarLimit } from "./_lib/validate.js"
+
+// One scan makes ~3 calls (generate, similar, save).
+const RATE_LIMIT_MAX = 60
 
 // Service role bypasses RLS, so every query below filters on the verified
 // user.id explicitly. Without it, fall back to the caller-scoped client.
@@ -37,6 +41,9 @@ export default async function handler(req, res) {
 
   const { user, supabase: userClient } = await verifyUser(req)
   if (!user) return res.status(401).json({ error: "Sign in required" })
+
+  const limit = await checkRateLimit(userClient, { bucket: "embed", max: RATE_LIMIT_MAX, errorStatus: 502 })
+  if (!limit.ok) return res.status(limit.status).json({ error: limit.error })
 
   const geminiKey = process.env.GEMINI_API_KEY
   if (!geminiKey) return res.status(500).json({ error: "Service unavailable" })

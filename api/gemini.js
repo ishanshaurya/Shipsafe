@@ -134,7 +134,7 @@ export default async function handler(req, res) {
 
   // ── Rate limiting — per user, persisted in Postgres so it survives cold
   //    starts and can't be dodged by rotating IPs ──
-  const limit = await checkRateLimit(supabase, { max: RATE_LIMIT_MAX })
+  const limit = await checkRateLimit(supabase, { bucket: "gemini", max: RATE_LIMIT_MAX })
   if (!limit.ok) return res.status(limit.status).json({ error: limit.error })
 
   if (configuredProviders().length === 0) return res.status(500).json({ error: "Service unavailable" })

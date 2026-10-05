@@ -1,4 +1,5 @@
 import { verifyUser } from "./_lib/auth.js"
+import { checkRateLimit } from "./_lib/rateLimit.js"
 import { parseGitHubUrl } from "./_lib/validate.js"
 
 // api/github.js — Vercel Serverless Function (v2)
@@ -33,6 +34,7 @@ const SKIP_FILES = [
 
 const MAX_FILES = 25
 const MAX_FILE_SIZE = 60000 // 60KB
+const RATE_LIMIT_MAX = 15 // a scan makes a list call then an import call
 
 async function githubFetch(path, token) {
   const headers = {
@@ -143,8 +145,11 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: "Method not allowed" })
   }
 
-  const { user } = await verifyUser(req)
+  const { user, supabase } = await verifyUser(req)
   if (!user) return res.status(401).json({ error: "Sign in required" })
+
+  const limit = await checkRateLimit(supabase, { bucket: "github", max: RATE_LIMIT_MAX, errorStatus: 502 })
+  if (!limit.ok) return res.status(limit.status).json({ error: limit.error })
 
   const { url, mode, files: selectedFiles } = req.body || {}
   if (!url || typeof url !== "string" || !url.trim()) {
