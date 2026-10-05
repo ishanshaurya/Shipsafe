@@ -1,7 +1,7 @@
 import { useState } from "react"
 import { Loader2 } from "lucide-react"
 import { runScan, findSimilarScans } from "../scan/scanRun"
-import { importRepo, listRepoFiles, fetchRepoFiles } from "../github-import/githubImport"
+import { useRepoImport } from "../github-import/useRepoImport"
 import { useAuth } from "../auth/useAuth"
 import ReportButton from "../reports/ReportButton"
 import NextSteps from "../scan/NextSteps"
@@ -84,60 +84,19 @@ export default function Debugger() {
   const [suggestions, setSuggestions] = useState([])
   const [error, setError] = useState(null)
   const [exp, setExp] = useState({})
-  const [githubUrl, setGithubUrl] = useState("")
-  const [githubLoading, setGithubLoading] = useState(false)
-  const [githubInfo, setGithubInfo] = useState(null)
-  const [githubError, setGithubError] = useState(null)
   const [similarScans, setSimilarScans] = useState([])
   const [streamingText, setStreamingText] = useState("")
-  // File picker state
-  const [fileList, setFileList] = useState(null)     // null = not fetched, [] = fetched
-  const [selectedFiles, setSelectedFiles] = useState([]) // paths of checked files
-  const [filePickRepo, setFilePickRepo] = useState(null) // repo info from list call
   const toggle = (id) => setExp(p => ({ ...p, [id]: !p[id] }))
   const lc = code.split("\n").length
 
-  // Quick scan: old one-step flow (auto-select + fetch content + populate code)
-  const fetchFromGitHub = async () => {
-    if (!githubUrl.trim() || githubLoading) return
-    setGithubLoading(true); setGithubError(null); setGithubInfo(null); setFileList(null)
-    const { data, error: importError } = await importRepo(githubUrl)
-    setGithubLoading(false)
-    if (importError) { setGithubError(importError); return }
-    setCode(data.code)
-    setLang(mapLanguage(data.repo.language))
-    setCtx(`${data.repo.name}${data.repo.description ? " - " + data.repo.description : ""}`)
-    setGithubInfo(data)
-    setResult(null); setError(null); setExp({})
-  }
-
-  // Step 1: Fetch file tree only (list mode)
-  const fetchFileList = async () => {
-    if (!githubUrl.trim() || githubLoading) return
-    setGithubLoading(true); setGithubError(null); setGithubInfo(null); setFileList(null)
-    const { data, error: listError } = await listRepoFiles(githubUrl)
-    setGithubLoading(false)
-    if (listError) { setGithubError(listError); return }
-    setFileList(data.files)
-    setFilePickRepo(data.repo)
-    // Pre-check auto-selected files
-    setSelectedFiles(data.files.filter(f => f.autoSelected).map(f => f.path))
-  }
-
-  // Step 3: Fetch only selected files and populate code editor
-  const fetchSelectedFiles = async () => {
-    if (!selectedFiles.length || githubLoading) return
-    setGithubLoading(true); setGithubError(null)
-    const { data, error: fetchError } = await fetchRepoFiles(githubUrl, selectedFiles)
-    setGithubLoading(false)
-    if (fetchError) { setGithubError(fetchError); return }
-    setCode(data.code)
-    setLang(mapLanguage(filePickRepo?.language))
-    setCtx(`${filePickRepo?.name}${filePickRepo?.description ? " - " + filePickRepo.description : ""}`)
-    setGithubInfo(data)
-    setFileList(null)
-    setResult(null); setError(null); setExp({})
-  }
+  const { repoProps } = useRepoImport({
+    onImported: (data, repo) => {
+      setCode(data.code)
+      setLang(mapLanguage(repo?.language))
+      setCtx(`${repo?.name}${repo?.description ? " - " + repo.description : ""}`)
+      setResult(null); setError(null); setExp({})
+    },
+  })
 
   const handleScan = async () => {
     if (!code.trim()||loading) return
@@ -183,22 +142,9 @@ export default function Debugger() {
         {/* Input */}
         <div className="stack" style={{ gap: 20 }}>
           <RepoImport
-            url={githubUrl}
-            onUrl={(v) => { setGithubUrl(v); setGithubError(null); setFileList(null) }}
-            onChoose={fetchFileList}
-            onQuick={fetchFromGitHub}
+            {...repoProps}
             quickLabel="Import recommended files without choosing"
             scanLabel="Import selected files"
-            loading={githubLoading}
-            fileList={fileList}
-            selected={selectedFiles}
-            onSelected={setSelectedFiles}
-            repo={filePickRepo}
-            onScan={fetchSelectedFiles}
-            onCancel={() => setFileList(null)}
-            error={githubError}
-            onDismissError={() => setGithubError(null)}
-            info={githubInfo}
           />
 
           <div className="field-row" style={{ alignItems: "flex-end" }}>
