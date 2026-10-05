@@ -1,8 +1,8 @@
 # Lane B status
 
-- Phase: B1
-- State: DONE (B1). Waiting for sync point 1
-- Last update: 2026-10-04
+- Phase: B2
+- State: DONE
+- Last update: 2026-10-05
 - Branch: redesign/b-backend
 
 ## Done
@@ -22,10 +22,24 @@
 - Note: local `auth.uid()` reads only `request.jwt.claim.sub`; `rls.sql` sets both that and `request.jwt.claims`.
 - Added `supabase/config.toml` and `supabase/.gitignore` via `supabase init`.
 
-- B2 (partial): `0007_match_scans_caller_identity.sql` drops `match_user_id`, scopes to `auth.uid()`, revokes execute from public/anon, grants to authenticated. `api/embed.js` `similar` now calls via the caller-scoped client. `rls.sql` +3 assertions. Apply 0007 before deploying the `api/embed.js` change (signature changed).
+### B2 (2026-10-05)
+Commits on `redesign/b-backend`: match_scans fix `614d286` + `1f61ec4`, then the three B2 steps below. Each step ran the gate and was cross-checked before the next.
+1. **`api/_lib` split** (`98e4091`). `auth.js` (unchanged), `rateLimit.js` (`checkRateLimit`), `providers.js` (pool, cooldowns, callers, SSE streaming, `generateEmbedding`), `validate.js` (gemini body, embedding shape, `parseGitHubUrl`). Function bodies moved verbatim (diffed against the old files); `SYSTEM_PROMPTS` stays in `gemini.js`. No contract change.
+2. **Rate limits** (`6e482bb`). `0008_rate_limit_buckets.sql`: `rate_limits` gains `bucket` (PK `user_id, bucket, window_start`); `increment_rate_limit(p_window_start, p_bucket default 'gemini')` replaces the 1-arg function. Buckets: `gemini` 20/min (unchanged), `embed` 60/min (about 3 calls per scan), `github` 15/min (list + import). Limits are constants at the top of `embed.js` / `github.js`. Checked locally: legacy row lands in `gemini`, 0001-0008 replay on a fresh DB, `supabase/tests/rate_limits.sql` 9/9, `rls.sql` 13/13.
+3. **API tests** in `tests/api/` (96 tests, mocked `fetch` and supabase-js, no network, no env files read). `gemini`, `embed`, `github` suites cover 401, 400, 429, provider failover, SSE framing, embed ownership filter (service-role save still filters `id` + verified `user_id`; similar uses the caller's client), GitHub name validation. `contract.test.js` parses `CONTRACTS.md` and replays every documented success shape, error code, the 401 body, the 20/min limit, SSE framing and the DB objects; editing the contract without a matching replay fails. Mutation check: 10 deliberate code breaks (drop rate limit, drop ownership filter, accept `..`, no failover, no `[DONE]`, wrong bucket, renamed key) each turned the suite red.
+
+### Deploy order (apply by you, never `db push` from here)
+1. Apply `0007` and `0008` first.
+2. Then deploy the api code. Both migrations are safe with the old api code: 0008 keeps old callers in the `gemini` bucket, and 0007 only breaks old `/api/embed` `similar` (it sends `match_user_id`). So apply them together and deploy right after.
+3. Reverse order breaks: new `embed`/`github` call `increment_rate_limit` with `p_bucket` (missing before 0008, they answer 502) and new `embed` calls `match_scans` without `match_user_id` (missing before 0007).
+
+### Packages
+No new packages. `package.json` change: `test` now runs `vitest run && npm run test:api`; `test:api` uses `tests/api/vitest.config.js` (lane A owns `vite.config.js`, so the API tests have their own config).
 
 ## Blocked
 (nothing)
 
 ## Requests
-- Decide fixes for drift above (scan_history delete policy, regulations read policy, `type` vs `regulation_type`, users table). New migration for you to apply. Affects lane A for the column name.
+- Integrator: `CONTRACTS.md` lists only 400/401/502 for `/api/embed` and `/api/github`. Both now also return `429 {"error"}` when over the limit (`ADDITIONS` in `tests/api/contract.test.js`). Please document it. Lane A: the client services already return `{error}` for non-OK, so no code change needed unless you want a friendlier message.
+- Integrator: a rate-limit check failure on embed/github returns `502 {"error":"Rate limit check failed"}` (kept inside the documented codes); gemini keeps its documented `500`.
+- Integrator: if you want one `npm test` config, merge `tests/api/vitest.config.js` into `vite.config.js` (`include: ['src/**/*.test.js', 'tests/api/**/*.test.js']`) and drop `test:api`.
