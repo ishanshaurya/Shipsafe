@@ -8,11 +8,12 @@
 | DB (RLS) | row-level security on user tables | `supabase/tests/rls.sql` | see the header of that file | local Supabase only, never prod |
 | e2e (unauthenticated) | `/api/gemini|github|embed` return 401 with no or bogus token | `e2e/api-auth.spec.js` | `BASE_URL=<url> npm run e2e -- api-auth.spec.js` | system Chrome, a deployed URL |
 | e2e (signed in) | sign-in, Debugger + shared report, Audit, Loopholes, Regulations, GitHub import | `e2e/tools.spec.js` | `scripts/smoke.sh <url>` | **deferred**, see below |
+| Grounding eval (scorer) | offline scoring of saved Regulations answers against fixtures; unit-tested | `scripts/grounding-eval.mjs`, `tests/fixtures/regulations/` | `node scripts/grounding-eval.mjs <dir>`; unit tests in `npm test` | nothing (collecting answers needs a signed-in session, see `docs/redesign/grounding-eval.md`) |
 | Health | page 200, API 401s, security headers, response times | `scripts/health.sh` | `scripts/health.sh <url>` | nothing; optional `VERCEL_AUTOMATION_BYPASS_SECRET` for protected previews |
 | Gate | lint + test + build + audit | `scripts/gate.sh` | `scripts/gate.sh` | nothing |
 | CI | the gate pieces split into jobs, gitleaks, preview e2e | `.github/workflows/` | on push/PR | repo secrets, see `docs/redesign/ci.md` |
 
-One vitest config (`vitest.config.js`) covers `src/` and `tests/api/`. `tests/api/vitest.config.js` is a thin wrapper kept so `npm run test:api` still works.
+One vitest config (`vitest.config.js`) covers `src/`, `tests/api/` and `scripts/`. `tests/api/vitest.config.js` is a thin wrapper kept so `npm run test:api` still works.
 
 ## Which layer catches what
 

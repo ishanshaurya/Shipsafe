@@ -1,0 +1,41 @@
+{
+  "topic": "Deepfakes and synthetic media",
+  "regulations": [
+    {
+      "name": "EU AI Act (Art. 50 transparency)",
+      "country": "European Union",
+      "year": 2024,
+      "status": "Active",
+      "summary": "Hand-written sample entry.",
+      "source_url": "https://eur-lex.europa.eu/eli/reg/2024/1689/oj",
+      "sectors": [],
+      "risk": {
+        "description": "x",
+        "severity": "High",
+        "who_is_at_risk": []
+      },
+      "developer_checklist": []
+    },
+    {
+      "name": "UK Online Safety Act",
+      "country": "United Kingdom",
+      "year": 2023,
+      "status": "Active",
+      "summary": "Hand-written sample entry.",
+      "source_url": "https://www.legislation.gov.uk/ukpga/2023/50/contents",
+      "sectors": [],
+      "risk": {
+        "description": "x",
+        "severity": "High",
+        "who_is_at_risk": []
+      },
+      "developer_checklist": []
+    }
+  ],
+  "country_coverage": {
+    "regulated": [],
+    "draft": [],
+    "unregulated": []
+  },
+  "overall_severity": "High"
+}

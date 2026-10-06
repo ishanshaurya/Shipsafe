@@ -1,0 +1,820 @@
+{
+  "version": 1,
+  "note": "Real regulations, laws and standards used to flag UNFAMILIAR names in a response. Not exhaustive: a name missing here is flagged 'unlisted' for human check, not proven invented. Add verified names here.",
+  "regulations": [
+    {
+      "id": "gdpr",
+      "canonical": "GDPR",
+      "jurisdiction": "EU",
+      "kind": "law",
+      "aliases": [
+        "gdpr",
+        "general data protection regulation"
+      ]
+    },
+    {
+      "id": "eu-ai-act",
+      "canonical": "EU AI Act",
+      "jurisdiction": "EU",
+      "kind": "law",
+      "aliases": [
+        "eu ai act",
+        "artificial intelligence act",
+        "ai act",
+        "regulation eu 2024 1689"
+      ]
+    },
+    {
+      "id": "eprivacy",
+      "canonical": "ePrivacy Directive",
+      "jurisdiction": "EU",
+      "kind": "law",
+      "aliases": [
+        "eprivacy",
+        "e privacy",
+        "directive 2002 58"
+      ]
+    },
+    {
+      "id": "dsa",
+      "canonical": "Digital Services Act",
+      "jurisdiction": "EU",
+      "kind": "law",
+      "aliases": [
+        "digital services act",
+        "dsa"
+      ]
+    },
+    {
+      "id": "dma",
+      "canonical": "Digital Markets Act",
+      "jurisdiction": "EU",
+      "kind": "law",
+      "aliases": [
+        "digital markets act",
+        "dma"
+      ]
+    },
+    {
+      "id": "eu-data-act",
+      "canonical": "Data Act",
+      "jurisdiction": "EU",
+      "kind": "law",
+      "aliases": [
+        "data act",
+        "regulation eu 2023 2854"
+      ]
+    },
+    {
+      "id": "dga",
+      "canonical": "Data Governance Act",
+      "jurisdiction": "EU",
+      "kind": "law",
+      "aliases": [
+        "data governance act"
+      ]
+    },
+    {
+      "id": "nis2",
+      "canonical": "NIS2 Directive",
+      "jurisdiction": "EU",
+      "kind": "law",
+      "aliases": [
+        "nis2",
+        "nis 2",
+        "directive eu 2022 2555"
+      ]
+    },
+    {
+      "id": "cra",
+      "canonical": "Cyber Resilience Act",
+      "jurisdiction": "EU",
+      "kind": "law",
+      "aliases": [
+        "cyber resilience act",
+        "regulation eu 2024 2847"
+      ]
+    },
+    {
+      "id": "eu-csa",
+      "canonical": "EU Cybersecurity Act",
+      "jurisdiction": "EU",
+      "kind": "law",
+      "aliases": [
+        "cybersecurity act",
+        "regulation eu 2019 881"
+      ]
+    },
+    {
+      "id": "dora",
+      "canonical": "DORA",
+      "jurisdiction": "EU",
+      "kind": "law",
+      "aliases": [
+        "dora",
+        "digital operational resilience act"
+      ]
+    },
+    {
+      "id": "psd2",
+      "canonical": "PSD2",
+      "jurisdiction": "EU",
+      "kind": "law",
+      "aliases": [
+        "psd2",
+        "payment services directive"
+      ]
+    },
+    {
+      "id": "mica",
+      "canonical": "MiCA",
+      "jurisdiction": "EU",
+      "kind": "law",
+      "aliases": [
+        "mica",
+        "markets in crypto assets"
+      ]
+    },
+    {
+      "id": "eidas",
+      "canonical": "eIDAS",
+      "jurisdiction": "EU",
+      "kind": "law",
+      "aliases": [
+        "eidas"
+      ]
+    },
+    {
+      "id": "eaa",
+      "canonical": "European Accessibility Act",
+      "jurisdiction": "EU",
+      "kind": "law",
+      "aliases": [
+        "european accessibility act"
+      ]
+    },
+    {
+      "id": "eu-pld",
+      "canonical": "Product Liability Directive",
+      "jurisdiction": "EU",
+      "kind": "law",
+      "aliases": [
+        "product liability directive"
+      ]
+    },
+    {
+      "id": "amld",
+      "canonical": "Anti-Money Laundering Directive",
+      "jurisdiction": "EU",
+      "kind": "law",
+      "aliases": [
+        "anti money laundering directive",
+        "amld",
+        "amlr"
+      ]
+    },
+    {
+      "id": "coe-ai",
+      "canonical": "Council of Europe Framework Convention on AI",
+      "jurisdiction": "Council of Europe",
+      "kind": "law",
+      "aliases": [
+        "framework convention on artificial intelligence"
+      ]
+    },
+    {
+      "id": "ccpa",
+      "canonical": "CCPA / CPRA",
+      "jurisdiction": "US-CA",
+      "kind": "law",
+      "aliases": [
+        "ccpa",
+        "cpra",
+        "california consumer privacy act",
+        "california privacy rights act"
+      ]
+    },
+    {
+      "id": "hipaa",
+      "canonical": "HIPAA",
+      "jurisdiction": "US",
+      "kind": "law",
+      "aliases": [
+        "hipaa",
+        "health insurance portability and accountability act"
+      ]
+    },
+    {
+      "id": "hitech",
+      "canonical": "HITECH Act",
+      "jurisdiction": "US",
+      "kind": "law",
+      "aliases": [
+        "hitech"
+      ]
+    },
+    {
+      "id": "coppa",
+      "canonical": "COPPA",
+      "jurisdiction": "US",
+      "kind": "law",
+      "aliases": [
+        "coppa",
+        "children s online privacy protection"
+      ]
+    },
+    {
+      "id": "ferpa",
+      "canonical": "FERPA",
+      "jurisdiction": "US",
+      "kind": "law",
+      "aliases": [
+        "ferpa",
+        "family educational rights and privacy act"
+      ]
+    },
+    {
+      "id": "glba",
+      "canonical": "Gramm-Leach-Bliley Act",
+      "jurisdiction": "US",
+      "kind": "law",
+      "aliases": [
+        "glba",
+        "gramm leach bliley"
+      ]
+    },
+    {
+      "id": "sox",
+      "canonical": "Sarbanes-Oxley Act",
+      "jurisdiction": "US",
+      "kind": "law",
+      "aliases": [
+        "sarbanes oxley",
+        "sox"
+      ]
+    },
+    {
+      "id": "fcra",
+      "canonical": "Fair Credit Reporting Act",
+      "jurisdiction": "US",
+      "kind": "law",
+      "aliases": [
+        "fcra",
+        "fair credit reporting act"
+      ]
+    },
+    {
+      "id": "can-spam",
+      "canonical": "CAN-SPAM Act",
+      "jurisdiction": "US",
+      "kind": "law",
+      "aliases": [
+        "can spam"
+      ]
+    },
+    {
+      "id": "tcpa",
+      "canonical": "TCPA",
+      "jurisdiction": "US",
+      "kind": "law",
+      "aliases": [
+        "tcpa",
+        "telephone consumer protection act"
+      ]
+    },
+    {
+      "id": "take-it-down",
+      "canonical": "TAKE IT DOWN Act",
+      "jurisdiction": "US",
+      "kind": "law",
+      "aliases": [
+        "take it down act"
+      ]
+    },
+    {
+      "id": "ftc-act",
+      "canonical": "FTC Act",
+      "jurisdiction": "US",
+      "kind": "law",
+      "aliases": [
+        "ftc act",
+        "federal trade commission act",
+        "section 5"
+      ]
+    },
+    {
+      "id": "ada",
+      "canonical": "Americans with Disabilities Act",
+      "jurisdiction": "US",
+      "kind": "law",
+      "aliases": [
+        "americans with disabilities act",
+        "ada",
+        "section 508"
+      ]
+    },
+    {
+      "id": "eo-14110",
+      "canonical": "Executive Order 14110",
+      "jurisdiction": "US",
+      "kind": "law",
+      "aliases": [
+        "executive order 14110",
+        "eo 14110"
+      ]
+    },
+    {
+      "id": "nist-ai-rmf",
+      "canonical": "NIST AI Risk Management Framework",
+      "jurisdiction": "US",
+      "kind": "framework",
+      "aliases": [
+        "nist ai rmf",
+        "ai risk management framework"
+      ]
+    },
+    {
+      "id": "nyc-ll144",
+      "canonical": "NYC Local Law 144",
+      "jurisdiction": "US-NY",
+      "kind": "law",
+      "aliases": [
+        "local law 144",
+        "automated employment decision tool"
+      ]
+    },
+    {
+      "id": "co-ai",
+      "canonical": "Colorado AI Act",
+      "jurisdiction": "US-CO",
+      "kind": "law",
+      "aliases": [
+        "colorado ai act",
+        "colorado artificial intelligence act",
+        "sb 24 205"
+      ]
+    },
+    {
+      "id": "bipa",
+      "canonical": "Illinois BIPA",
+      "jurisdiction": "US-IL",
+      "kind": "law",
+      "aliases": [
+        "bipa",
+        "biometric information privacy act"
+      ]
+    },
+    {
+      "id": "il-aivi",
+      "canonical": "Illinois Artificial Intelligence Video Interview Act",
+      "jurisdiction": "US-IL",
+      "kind": "law",
+      "aliases": [
+        "artificial intelligence video interview act"
+      ]
+    },
+    {
+      "id": "vcdpa",
+      "canonical": "Virginia CDPA",
+      "jurisdiction": "US-VA",
+      "kind": "law",
+      "aliases": [
+        "vcdpa",
+        "virginia consumer data protection act"
+      ]
+    },
+    {
+      "id": "tdpsa",
+      "canonical": "Texas Data Privacy and Security Act",
+      "jurisdiction": "US-TX",
+      "kind": "law",
+      "aliases": [
+        "tdpsa",
+        "texas data privacy and security act"
+      ]
+    },
+    {
+      "id": "utah-ai",
+      "canonical": "Utah Artificial Intelligence Policy Act",
+      "jurisdiction": "US-UT",
+      "kind": "law",
+      "aliases": [
+        "utah artificial intelligence policy act"
+      ]
+    },
+    {
+      "id": "cpa",
+      "canonical": "Colorado Privacy Act",
+      "jurisdiction": "US-CO",
+      "kind": "law",
+      "aliases": [
+        "colorado privacy act"
+      ]
+    },
+    {
+      "id": "ctdpa",
+      "canonical": "Connecticut Data Privacy Act",
+      "jurisdiction": "US-CT",
+      "kind": "law",
+      "aliases": [
+        "connecticut data privacy act"
+      ]
+    },
+    {
+      "id": "uk-gdpr",
+      "canonical": "UK GDPR",
+      "jurisdiction": "UK",
+      "kind": "law",
+      "aliases": [
+        "uk gdpr",
+        "united kingdom general data protection regulation"
+      ]
+    },
+    {
+      "id": "dpa2018",
+      "canonical": "Data Protection Act 2018",
+      "jurisdiction": "UK",
+      "kind": "law",
+      "aliases": [
+        "data protection act 2018"
+      ]
+    },
+    {
+      "id": "uk-osa",
+      "canonical": "Online Safety Act",
+      "jurisdiction": "UK",
+      "kind": "law",
+      "aliases": [
+        "online safety act"
+      ]
+    },
+    {
+      "id": "pecr",
+      "canonical": "PECR",
+      "jurisdiction": "UK",
+      "kind": "law",
+      "aliases": [
+        "pecr",
+        "privacy and electronic communications regulations"
+      ]
+    },
+    {
+      "id": "aadc",
+      "canonical": "Age Appropriate Design Code",
+      "jurisdiction": "UK",
+      "kind": "law",
+      "aliases": [
+        "age appropriate design code",
+        "children s code"
+      ]
+    },
+    {
+      "id": "cma1990",
+      "canonical": "Computer Misuse Act 1990",
+      "jurisdiction": "UK",
+      "kind": "law",
+      "aliases": [
+        "computer misuse act"
+      ]
+    },
+    {
+      "id": "duaa",
+      "canonical": "Data (Use and Access) Act 2025",
+      "jurisdiction": "UK",
+      "kind": "law",
+      "aliases": [
+        "data use and access act"
+      ]
+    },
+    {
+      "id": "lgpd",
+      "canonical": "LGPD",
+      "jurisdiction": "Brazil",
+      "kind": "law",
+      "aliases": [
+        "lgpd",
+        "lei geral de protecao de dados"
+      ]
+    },
+    {
+      "id": "pipeda",
+      "canonical": "PIPEDA",
+      "jurisdiction": "Canada",
+      "kind": "law",
+      "aliases": [
+        "pipeda",
+        "personal information protection and electronic documents act"
+      ]
+    },
+    {
+      "id": "quebec-25",
+      "canonical": "Quebec Law 25",
+      "jurisdiction": "Canada",
+      "kind": "law",
+      "aliases": [
+        "law 25",
+        "quebec law 25",
+        "act respecting the protection of personal information in the private sector"
+      ]
+    },
+    {
+      "id": "aida",
+      "canonical": "AIDA (Bill C-27)",
+      "jurisdiction": "Canada",
+      "kind": "law",
+      "aliases": [
+        "aida",
+        "artificial intelligence and data act",
+        "bill c 27"
+      ]
+    },
+    {
+      "id": "au-privacy",
+      "canonical": "Privacy Act 1988",
+      "jurisdiction": "Australia",
+      "kind": "law",
+      "aliases": [
+        "privacy act 1988"
+      ]
+    },
+    {
+      "id": "appi",
+      "canonical": "APPI",
+      "jurisdiction": "Japan",
+      "kind": "law",
+      "aliases": [
+        "appi",
+        "act on the protection of personal information"
+      ]
+    },
+    {
+      "id": "sg-pdpa",
+      "canonical": "PDPA (Singapore)",
+      "jurisdiction": "Singapore",
+      "kind": "law",
+      "aliases": [
+        "pdpa",
+        "personal data protection act"
+      ]
+    },
+    {
+      "id": "th-pdpa",
+      "canonical": "PDPA (Thailand)",
+      "jurisdiction": "Thailand",
+      "kind": "law",
+      "aliases": [
+        "pdpa",
+        "personal data protection act"
+      ]
+    },
+    {
+      "id": "pipl",
+      "canonical": "PIPL",
+      "jurisdiction": "China",
+      "kind": "law",
+      "aliases": [
+        "pipl",
+        "personal information protection law"
+      ]
+    },
+    {
+      "id": "cn-csl",
+      "canonical": "Cybersecurity Law (China)",
+      "jurisdiction": "China",
+      "kind": "law",
+      "aliases": [
+        "cybersecurity law"
+      ]
+    },
+    {
+      "id": "cn-dsl",
+      "canonical": "Data Security Law (China)",
+      "jurisdiction": "China",
+      "kind": "law",
+      "aliases": [
+        "data security law"
+      ]
+    },
+    {
+      "id": "cn-genai",
+      "canonical": "Interim Measures for Generative AI Services",
+      "jurisdiction": "China",
+      "kind": "law",
+      "aliases": [
+        "generative artificial intelligence services",
+        "generative ai services",
+        "interim measures"
+      ]
+    },
+    {
+      "id": "cn-deepsynth",
+      "canonical": "Deep Synthesis Provisions",
+      "jurisdiction": "China",
+      "kind": "law",
+      "aliases": [
+        "deep synthesis"
+      ]
+    },
+    {
+      "id": "cn-algo",
+      "canonical": "Algorithmic Recommendation Provisions",
+      "jurisdiction": "China",
+      "kind": "law",
+      "aliases": [
+        "algorithmic recommendation"
+      ]
+    },
+    {
+      "id": "in-dpdp",
+      "canonical": "Digital Personal Data Protection Act, 2023",
+      "jurisdiction": "India",
+      "kind": "law",
+      "aliases": [
+        "digital personal data protection act",
+        "dpdp act",
+        "dpdp"
+      ]
+    },
+    {
+      "id": "in-it",
+      "canonical": "Information Technology Act, 2000",
+      "jurisdiction": "India",
+      "kind": "law",
+      "aliases": [
+        "information technology act",
+        "it act 2000",
+        "it rules 2021"
+      ]
+    },
+    {
+      "id": "kr-pipa",
+      "canonical": "PIPA (South Korea)",
+      "jurisdiction": "South Korea",
+      "kind": "law",
+      "aliases": [
+        "pipa",
+        "personal information protection act"
+      ]
+    },
+    {
+      "id": "kr-ai",
+      "canonical": "AI Basic Act",
+      "jurisdiction": "South Korea",
+      "kind": "law",
+      "aliases": [
+        "ai basic act",
+        "framework act on artificial intelligence"
+      ]
+    },
+    {
+      "id": "ch-fadp",
+      "canonical": "Swiss FADP",
+      "jurisdiction": "Switzerland",
+      "kind": "law",
+      "aliases": [
+        "fadp",
+        "nfadp",
+        "federal act on data protection"
+      ]
+    },
+    {
+      "id": "za-popia",
+      "canonical": "POPIA",
+      "jurisdiction": "South Africa",
+      "kind": "law",
+      "aliases": [
+        "popia",
+        "protection of personal information act"
+      ]
+    },
+    {
+      "id": "ng-ndpa",
+      "canonical": "Nigeria Data Protection Act 2023",
+      "jurisdiction": "Nigeria",
+      "kind": "law",
+      "aliases": [
+        "nigeria data protection act",
+        "ndpa"
+      ]
+    },
+    {
+      "id": "ke-dpa",
+      "canonical": "Kenya Data Protection Act 2019",
+      "jurisdiction": "Kenya",
+      "kind": "law",
+      "aliases": [
+        "kenya data protection act"
+      ]
+    },
+    {
+      "id": "ae-pdpl",
+      "canonical": "UAE PDPL",
+      "jurisdiction": "UAE",
+      "kind": "law",
+      "aliases": [
+        "uae pdpl",
+        "federal decree law 45 of 2021",
+        "personal data protection law"
+      ]
+    },
+    {
+      "id": "sa-pdpl",
+      "canonical": "Saudi PDPL",
+      "jurisdiction": "Saudi Arabia",
+      "kind": "law",
+      "aliases": [
+        "saudi pdpl",
+        "personal data protection law"
+      ]
+    },
+    {
+      "id": "tr-kvkk",
+      "canonical": "KVKK",
+      "jurisdiction": "Turkey",
+      "kind": "law",
+      "aliases": [
+        "kvkk",
+        "law no 6698"
+      ]
+    },
+    {
+      "id": "vn-pdpd",
+      "canonical": "Decree 13/2023 (Vietnam PDPD)",
+      "jurisdiction": "Vietnam",
+      "kind": "law",
+      "aliases": [
+        "decree 13",
+        "pdpd"
+      ]
+    },
+    {
+      "id": "id-pdp",
+      "canonical": "Indonesia PDP Law",
+      "jurisdiction": "Indonesia",
+      "kind": "law",
+      "aliases": [
+        "pdp law",
+        "law no 27 of 2022"
+      ]
+    },
+    {
+      "id": "mx-lfpdppp",
+      "canonical": "LFPDPPP",
+      "jurisdiction": "Mexico",
+      "kind": "law",
+      "aliases": [
+        "lfpdppp",
+        "ley federal de proteccion de datos personales"
+      ]
+    },
+    {
+      "id": "ar-pdpl",
+      "canonical": "Argentina Personal Data Protection Law",
+      "jurisdiction": "Argentina",
+      "kind": "law",
+      "aliases": [
+        "law 25 326",
+        "ley 25 326"
+      ]
+    },
+    {
+      "id": "pci-dss",
+      "canonical": "PCI DSS",
+      "jurisdiction": "Global",
+      "kind": "standard",
+      "aliases": [
+        "pci dss",
+        "payment card industry data security standard"
+      ]
+    },
+    {
+      "id": "iso-42001",
+      "canonical": "ISO/IEC 42001",
+      "jurisdiction": "Global",
+      "kind": "standard",
+      "aliases": [
+        "iso iec 42001",
+        "iso 42001"
+      ]
+    },
+    {
+      "id": "iso-27001",
+      "canonical": "ISO/IEC 27001",
+      "jurisdiction": "Global",
+      "kind": "standard",
+      "aliases": [
+        "iso iec 27001",
+        "iso 27001"
+      ]
+    },
+    {
+      "id": "soc2",
+      "canonical": "SOC 2",
+      "jurisdiction": "Global",
+      "kind": "standard",
+      "aliases": [
+        "soc 2"
+      ]
+    }
+  ]
+}

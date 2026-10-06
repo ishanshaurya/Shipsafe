@@ -1,0 +1,41 @@
+{
+  "topic": "High-risk AI systems in the EU",
+  "regulations": [
+    {
+      "name": "EU AI Act",
+      "country": "European Union",
+      "year": 2021,
+      "status": "Active",
+      "summary": "The AI Act entered into force in 2021 and fully applies today.",
+      "source_url": null,
+      "sectors": [],
+      "risk": {
+        "description": "x",
+        "severity": "High",
+        "who_is_at_risk": []
+      },
+      "developer_checklist": []
+    },
+    {
+      "name": "European AI Safety Charter Act",
+      "country": "European Union",
+      "year": 2023,
+      "status": "Active",
+      "summary": "Hand-written sample entry.",
+      "source_url": null,
+      "sectors": [],
+      "risk": {
+        "description": "x",
+        "severity": "High",
+        "who_is_at_risk": []
+      },
+      "developer_checklist": []
+    }
+  ],
+  "country_coverage": {
+    "regulated": [],
+    "draft": [],
+    "unregulated": []
+  },
+  "overall_severity": "High"
+}
