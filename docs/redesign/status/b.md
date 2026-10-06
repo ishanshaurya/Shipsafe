@@ -1,8 +1,8 @@
 # Lane B status
 
-- Phase: B3
-- State: DONE
-- Last update: 2026-10-05
+- Phase: 4a (regulations review, no code)
+- State: DONE (review)
+- Last update: 2026-10-06
 - Branch: redesign/b-backend
 
 ## Done
@@ -67,6 +67,14 @@ Rule of thumb for choosing a fix: if `provider` is above about 80% of `latencyMs
 
 ### Deploy note for B3
 API-only change, no migration. Order does not matter. Optional env `LOG_HASH_SALT` (any random string) salts the user hash.
+
+### Wave 4, phase 4a: regulations review (2026-10-06)
+Wrote `docs/redesign/regulations-review.md`. **Verdict: FAIL** against criteria stated up front (C1 status hard fail, C2 facts, C3 citations, C4 freshness, C5 content, C6 integrity, C7 coverage). Docs only: no code, migration or `src/` change. The CSV stays untracked (listed in `.git/info/exclude`).
+- 14 rows, 11 jurisdictions (India 3, US 2). No duplicates. All rows share one `updated_at` (208 days old on 2026-10-06). 8 of 14 have no `source_url`; of the 6 present, 1 is a 404 and 1 redirects to an unrelated page.
+- Wrong legal status on 3 rows: Canada AIDA (died Jan 2025), US Executive Order 14110 (revoked Jan 2025), Korea AI Basic Act (in force 22 Jan 2026). 11 of 14 rows have a material error or an unsupported claim; only the EU, UK and NIST rows are usable as-is (minor notes). The errors predate the 11 Mar 2026 load, so this is a stale or model-seeded source, not drift.
+- Grounding on it would narrow answers (12 of 14 rows are "Cross-sector", so no topic filter) and add a "from our database" label to wrong facts.
+- Per the task, the grounding design and the `CONTRACTS.md` proposal were not written because the verdict is FAIL. Wave 4 should not start on this table. Path to a re-review (editorial pass, `last_verified_at`, required `source_url`, status vocabulary, topic tags, coverage list, owner and cadence) is in the review file.
+- Facts checked against secondary sources are tagged [V] in the review; the rest are my own knowledge and tagged [M] or uncertain. No primary legal texts were read.
 
 ## Blocked
 (nothing)
