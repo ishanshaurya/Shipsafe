@@ -160,7 +160,7 @@ function ReportShell({ children }) {
     <div style={{ minHeight: "100vh" }}>
       <header style={{ borderBottom: "1px solid var(--color-rule)" }}>
         <div style={{ maxWidth: 720, margin: "0 auto", padding: "0 16px", height: 64, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-          <Link to="/" style={{ display: "inline-flex", alignItems: "center", gap: 10, textDecoration: "none", color: "var(--color-ink)", fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 24 }}>
+          <Link to="/" style={{ display: "inline-flex", alignItems: "center", gap: 10, textDecoration: "none", color: "var(--color-ink)", fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 24 }}>
             <Logo size={28} tone="light" />
             ShipSafe
           </Link>

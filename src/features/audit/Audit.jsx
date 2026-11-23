@@ -210,7 +210,7 @@ export default function Audit() {
       <div className="tool-grid">
 
         {/* Input */}
-        <div className="stack" style={{ gap: 20 }}>
+        <div className="stack pane" style={{ gap: 20 }}>
           <RepoImport
             {...repoProps}
             quickLabel="Import recommended files and audit now"
@@ -245,6 +245,7 @@ export default function Audit() {
           {!loading && !result && (
             <EmptyState
               title="Paste your project to audit"
+              ghost
               action={<Button variant="secondary" onClick={() => { setCode(SAMPLE_PROJECT); setResult(null) }}>Load sample project</Button>}
             >
               You get a verdict plus a score for security, code quality, maintainability, AI patterns and deploy readiness.

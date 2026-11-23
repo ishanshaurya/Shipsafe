@@ -6,7 +6,7 @@ import Button from '../shared/ui/Button'
 import { useAuth } from '../features/auth/useAuth'
 import { TOOL_GROUPS } from '../shared/toolRegistry'
 
-const navClass = ({ isActive }) => `rail-link${isActive ? ' active' : ''}`
+const navClass = ({ isActive }) => `bar-link${isActive ? ' active' : ''}`
 
 export default function Layout() {
   const { pathname } = useLocation()
@@ -14,7 +14,7 @@ export default function Layout() {
   const [open, setOpen] = useState(false)
   const [lastPath, setLastPath] = useState(pathname)
 
-  // Close the drawer after navigating (adjusting state during render, not in an effect)
+  // Close the menu after navigating (adjusting state during render, not in an effect)
   if (pathname !== lastPath) {
     setLastPath(pathname)
     setOpen(false)
@@ -31,50 +31,47 @@ export default function Layout() {
     <div>
       <a href="#main" className="skip-link">Skip to content</a>
 
+      <header className="bar">
+        <Link to="/dashboard" className="bar-brand">
+          <Logo size={24} tone="light" />
+          ShipSafe
+        </Link>
+
+        <Button
+          variant="ghost" size="sm" className="bar-toggle"
+          aria-label={open ? 'Close menu' : 'Open menu'} aria-expanded={open} aria-controls="bar-menu"
+          onClick={() => setOpen((o) => !o)}
+        >
+          {open ? <X size={20} /> : <Menu size={20} />}
+        </Button>
+
+        <div id="bar-menu" className={`bar-menu${open ? ' open' : ''}`}>
+          <nav className="bar-nav" aria-label="Main">
+            <NavLink to="/dashboard" className={navClass}>Dashboard</NavLink>
+            {TOOL_GROUPS.map(({ group, tools }) => (
+              <div key={group} className="nav-group" role="group" aria-label={group}>
+                <span className="nav-group-label" aria-hidden="true">{group}</span>
+                {tools.map((t) => (
+                  <NavLink key={t.id} to={t.path} className={navClass}>{t.name}</NavLink>
+                ))}
+              </div>
+            ))}
+          </nav>
+
+          {user && (
+            <div className="bar-user">
+              <span className="bar-user-email" title={user.email}>{user.email}</span>
+              <Button variant="secondary" size="sm" onClick={signOut}>Sign out</Button>
+            </div>
+          )}
+        </div>
+      </header>
+
       <div className={`shell-backdrop${open ? ' open' : ''}`} onClick={() => setOpen(false)} />
 
-      <aside id="rail" className={`shell-rail${open ? ' open' : ''}`} aria-label="Sidebar">
-        <div style={{ display: 'flex', alignItems: 'center' }}>
-          <Link to="/dashboard" className="shell-brand">
-            <Logo size={28} tone="ink" />
-            ShipSafe
-          </Link>
-          <Button variant="onink" size="sm" className="shell-close" aria-label="Close menu" onClick={() => setOpen(false)}>
-            <X size={18} />
-          </Button>
-        </div>
-
-        <nav className="shell-nav" aria-label="Main">
-          <NavLink to="/dashboard" className={navClass}>Dashboard</NavLink>
-          {TOOL_GROUPS.map(({ group, tools }) => (
-            <div key={group}>
-              <div className="rail-group">{group}</div>
-              {tools.map((t) => (
-                <NavLink key={t.id} to={t.path} className={navClass}>{t.name}</NavLink>
-              ))}
-            </div>
-          ))}
-        </nav>
-
-        {user && (
-          <div className="rail-user">
-            <div className="rail-user-email" title={user.email}>{user.email}</div>
-            <Button variant="onink" size="sm" onClick={signOut}>Sign out</Button>
-          </div>
-        )}
-      </aside>
-
-      <div className="shell-main">
-        <header className="shell-topbar">
-          <Button variant="ghost" size="sm" aria-label="Open menu" aria-expanded={open} aria-controls="rail" onClick={() => setOpen(true)}>
-            <Menu size={20} />
-          </Button>
-          ShipSafe
-        </header>
-        <main id="main" className="page">
-          <Outlet />
-        </main>
-      </div>
+      <main id="main" className="page">
+        <Outlet />
+      </main>
     </div>
   )
 }

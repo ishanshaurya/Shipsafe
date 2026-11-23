@@ -37,18 +37,18 @@ export default function Landing() {
         .ls-wrap { max-width: 1120px; margin: 0 auto; padding: 0 32px; }
         .ls-nav { border-bottom: 1px solid var(--color-rule); }
         .ls-nav .ls-wrap { display: flex; align-items: center; justify-content: space-between; height: 68px; }
-        .ls-brand { display: flex; align-items: center; gap: 10px; text-decoration: none; font-family: var(--font-display); font-weight: 800; font-size: 26px; letter-spacing: 0; }
+        .ls-brand { display: flex; align-items: center; gap: 10px; text-decoration: none; font-family: var(--font-display); font-weight: 700; font-size: 22px; letter-spacing: -0.02em; }
         .ls-nav-actions { display: flex; align-items: center; gap: 8px; }
 
         .ls-btn { display: inline-flex; align-items: center; justify-content: center; min-height: 44px; padding: 0 20px; border-radius: var(--radius-control); font-size: 16px; font-weight: 600; text-decoration: none; border: 1px solid transparent; transition: background var(--dur-fast), border-color var(--dur-fast); }
         .ls-btn-primary { background: var(--color-signal-blue); color: #fff !important; }
-        .ls-btn-primary:hover { background: #1a50a0; }
+        .ls-btn-primary:hover { background: var(--color-signal-blue-hover); }
         .ls-btn-secondary { border-color: var(--color-ink); color: var(--color-ink); }
         .ls-btn-secondary:hover { background: var(--color-surface); }
         .ls-btn-ghost { color: var(--color-ink); }
         .ls-btn-ghost:hover { background: var(--color-surface); }
 
-        .ls-display { font-family: var(--font-display); font-weight: 800; letter-spacing: 0; line-height: 1.05; }
+        .ls-display { font-family: var(--font-display); font-weight: 700; letter-spacing: -0.04em; line-height: 1.02; }
 
         .ls-hero { padding: 80px 0 96px; }
         .ls-hero .ls-wrap { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 480px); gap: 64px; align-items: start; }
@@ -56,7 +56,7 @@ export default function Landing() {
         .ls-lede { font-size: 18px; color: var(--color-muted); max-width: 52ch; margin-bottom: 32px; }
         .ls-cta-row { display: flex; gap: 12px; flex-wrap: wrap; }
 
-        .ls-panel { background: var(--color-surface); border: 1px solid var(--color-rule); }
+        .ls-panel { background: var(--color-surface); border: 1px solid var(--color-rule); border-radius: var(--radius-panel); }
         .ls-panel-head { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 20px 24px; border-bottom: 1px solid var(--color-rule); }
         .ls-panel-title { font-size: 14px; color: var(--color-muted); }
         .ls-panel-name { font-size: 16px; font-weight: 600; }
@@ -79,13 +79,13 @@ export default function Landing() {
         .ls-ledger { list-style: none; border-top: 1px solid var(--color-rule); }
         .ls-tool-row { display: grid; grid-template-columns: 200px 240px minmax(0, 1fr); gap: 24px; padding: 24px 0; border-bottom: 1px solid var(--color-rule); text-decoration: none; align-items: baseline; }
         .ls-tool-group { color: var(--color-muted); font-size: 14px; }
-        .ls-tool-name { font-family: var(--font-display); font-weight: 700; font-size: 28px; line-height: 1.1; }
+        .ls-tool-name { font-family: var(--font-display); font-weight: 650; font-size: 24px; letter-spacing: -0.02em; line-height: 1.15; }
         .ls-tool-row:hover .ls-tool-name { text-decoration: underline; text-underline-offset: 4px; text-decoration-thickness: 2px; }
         .ls-tool-desc { color: var(--color-muted); max-width: 60ch; }
 
         .ls-steps { list-style: none; border-top: 1px solid var(--color-rule); max-width: 760px; }
         .ls-step { display: grid; grid-template-columns: 56px minmax(0, 1fr); gap: 16px; padding: 24px 0; border-bottom: 1px solid var(--color-rule); align-items: baseline; }
-        .ls-step-num { font-family: var(--font-display); font-weight: 800; font-size: 40px; line-height: 1; color: var(--color-signal-blue); }
+        .ls-step-num { font-family: var(--font-display); font-weight: 700; font-size: 40px; letter-spacing: -0.03em; line-height: 1; color: var(--color-signal-blue); }
         .ls-step-text { font-size: 20px; font-weight: 500; max-width: 40ch; }
 
         .ls-final .ls-wrap { display: flex; align-items: center; justify-content: space-between; gap: 32px; flex-wrap: wrap; }

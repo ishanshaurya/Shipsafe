@@ -65,7 +65,7 @@ export default function Login() {
     <main style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
       <div style={{ width: "100%", maxWidth: 400 }}>
         <div style={{ textAlign: "center", marginBottom: 32 }}>
-          <Link to="/" style={{ display: "inline-flex", alignItems: "center", gap: 10, textDecoration: "none", color: "var(--color-ink)", fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 28 }}>
+          <Link to="/" style={{ display: "inline-flex", alignItems: "center", gap: 10, textDecoration: "none", color: "var(--color-ink)", fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 28 }}>
             <Logo size={32} tone="light" />
             ShipSafe
           </Link>

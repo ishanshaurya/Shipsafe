@@ -115,7 +115,7 @@ export default function Loopholes() {
       <div className="tool-grid">
 
         {/* Input */}
-        <div className="stack" style={{ gap: 20 }}>
+        <div className="stack pane" style={{ gap: 20 }}>
           <div>
             <Field
               as="textarea" id="lh-desc" label="Describe your AI system" rows={7}
@@ -160,7 +160,7 @@ export default function Loopholes() {
         {/* Result */}
         <div aria-live="polite">
           {!loading && !result && (
-            <EmptyState title="Describe your AI system">
+            <EmptyState title="Describe your AI system" ghost>
               Pick at least one country. You get grey areas ranked by risk, how each could be exploited, and the defenses to put in place.
             </EmptyState>
           )}
@@ -175,7 +175,7 @@ export default function Loopholes() {
 
           {result && (
             <div className="stack" style={{ gap: 24 }}>
-              <VerdictBanner verdict={scoreVerdict(result.riskScore, { risk: true })} score={result.riskScore}>
+              <VerdictBanner verdict={scoreVerdict(result.riskScore, { risk: true })} score={result.riskScore} risk>
                 <p>{result.summary}</p>
                 <p className="small muted" style={{ marginTop: 8 }}>Regulatory risk score. Higher means more legal exposure.</p>
               </VerdictBanner>

@@ -148,7 +148,7 @@ export default function Debugger() {
       <div className="tool-grid">
 
         {/* Input */}
-        <div className="stack" style={{ gap: 20 }}>
+        <div className="stack pane" style={{ gap: 20 }}>
           <RepoImport
             {...repoProps}
             quickLabel="Import recommended files without choosing"
@@ -191,6 +191,7 @@ export default function Debugger() {
           {!loading && !result && !error && (
             <EmptyState
               title="Paste code to review"
+              ghost
               action={
                 <Button variant="secondary" onClick={() => { setCode(SAMPLE); setLang("JavaScript"); setCtx("Express.js REST API"); setResult(null); setError(null) }}>
                   Load sample code
