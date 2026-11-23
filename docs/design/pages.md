@@ -21,7 +21,7 @@ Tokens, verdicts and motion: [system.md](system.md). Components and states: [com
 | Sign out                           |
 +--------+---------------------------+
 ```
-Rail: 240px, `--ink` background, light text, active item marked by a blue left bar and a filled row. Group headings are sentence case, `--code-muted`. Replaces the current "BUILD · VALIDATE · DEPLOY" tagline; the rail has no tagline.
+**Revised (2026-10-07):** the rail is now a 60px top bar: brand, Dashboard, the two tool groups separated by a 1px rule (group names are read by screen readers and shown in the menu below 1024px), then email and Sign out on the right. The active link has a 2px ink underline. Below 1024px the links and account collapse into a menu under the bar. The two-pane tool pages stretch to equal height, and the empty result pane shows a dashed outline of the rows to come. The sketch above shows the original rail layout.
 
 ## Landing (public)
 Job: tell a developer what it checks and get them to the first scan.
@@ -117,4 +117,4 @@ Document layout, 720px column. Header: logo and "Run your own scan". Title, Flag
 Plain paper page: "Page not found", "This address doesn't match a page. Go to ShipSafe." One link. No decoration.
 
 ## Responsive
-Breakpoints 480, 768, 1024, 1280. Rail is a drawer below 1024. Tool pages stack below 1024. Content gutters 16px (<768), 32px (≥768). Check 375px: no horizontal scroll, tap targets ≥44px, code panels scroll inside.
+Breakpoints 480, 768, 1024, 1280. The top-bar menu replaces the nav links below 1024. Tool pages stack below 1024. Content gutters 16px (<768), 32px (≥768). Check 375px: no horizontal scroll, tap targets ≥44px, code panels scroll inside.

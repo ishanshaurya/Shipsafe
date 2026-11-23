@@ -1,4 +1,6 @@
-# Design system — "port clearance"
+# Design system — "port clearance", minimal revision
+
+> **Revision (2026-10-07): minimal.** Same verdict flags and ledger rows, with a quieter surface: a single top bar replaces the left rail, panels are 10px-rounded with 1px rules, one font family (Schibsted Grotesk) replaces the condensed display face, the verdict banner shows the word plus a 0–100 ruler against the ship line, and the accent is one ultramarine blue. Tables below are current. The plan and critique further down are the original first pass and are kept for history; where they disagree with the tables, the tables win.
 
 Light theme. A vessel is cleared to sail by inspection; ShipSafe clears a project by inspecting its code and its legal exposure. The metaphor lives in the **verdict flags** and the ledger layout, not in the copy: labels stay plain.
 
@@ -26,13 +28,14 @@ Light theme. A vessel is cleared to sail by inspection; ShipSafe clears a projec
 ## Color tokens
 | Token | Hex | Use |
 |---|---|---|
-| `--paper` | `#F2F5F7` | Page background |
+| `--paper` | `#F7F8FA` | Page background |
 | `--surface` | `#FFFFFF` | Panels, inputs, ledger rows |
-| `--ink` | `#12263F` | Text, rail background, code panels |
+| `--ink` | `#15171C` | Text, code panels |
 | `--muted` | `#51657A` | Secondary text |
 | `--rule` | `#CBD5DD` | Dividers (decorative only) |
 | `--control` | `#74879B` | Input and control borders (≥3:1) |
-| `--blue` | `#1F5FBF` | Primary action, links, focus ring, Cleared |
+| `--blue` | `#2845F5` | Primary action, links, focus ring (hover `#1F37CC`) |
+| `--go` | `#1F7A4D` | Cleared (flag fill, word, ship-line mark) |
 | `--yellow` | `#EFB11F` | Held fill (navy text/glyph on it, never as text) |
 | `--red` | `#D2362B` | Blocked fill (white on it); text variant `--red-text #B42318` |
 | `--code-text` | `#E8EEF5` | Text on ink |
@@ -52,7 +55,7 @@ Shape and word always accompany color. Loophole risk is inverted (risk 100 = Blo
 ## Type
 | Role | Family | Weights | Notes |
 |---|---|---|---|
-| Display, numerals, verdict words | Big Shoulders Display | 700, 800 | Condensed, sentence case, tracking 0 |
+| Display, numerals, verdict words | Schibsted Grotesk | 650, 700 | Sentence case, tracking −0.02 to −0.045em |
 | UI and body | Schibsted Grotesk | 400, 500, 600 | |
 | Code, file paths | IBM Plex Mono | 400 | Nothing else is mono |
 Load once with `<link>` + `preconnect` in `index.html`; delete the per-page `@import`s.
@@ -61,7 +64,7 @@ Scale (desktop / mobile): display 64/44 · h1 40/32 · h2 28/24 · h3 20/18 · b
 
 ## Space, shape, depth
 - Spacing (4-pt): 4, 8, 12, 16, 24, 32, 48, 64, 96.
-- Radius: 0 for flags, panels, ledger rows; 6px for inputs, buttons, chips.
+- Radius: 0 for flags and ledger rows; 10px for panels and the verdict banner; 8px for inputs, buttons, chips and code panels.
 - Depth: none. Separation is 1px `--rule` lines and paper/white contrast. Menus and popovers only: 1px `--ink` border plus one hard offset shadow.
 - Focus: 2px `--blue` ring with 2px offset (`--link-on-ink` on ink surfaces).
 

@@ -12,7 +12,7 @@ Only components that hide behavior or carry a shared meaning are primitives. Pla
 | Component | Variants / states | Notes |
 |---|---|---|
 | **Flag** | Cleared, Held, Blocked × 16/24/48px | SVG with the shape rules in `system.md`; `title` + visible word |
-| **Gauge** (restyle of `ScoreRing`) | Keep the 5 callers' props | Ring in verdict color, Big Shoulders numeral |
+| **Gauge** (inside `VerdictBanner`) | `score`, `risk` | 0–100 ruler: score marker below, limit marker above (80 ship line; 20 for risk scores). `role="img"` with the numbers in its label |
 | **Button** | primary (blue), secondary (ink outline), ghost; sm/md; link form; loading (spinner + same label, disabled) | Verb labels, no arrows |
 | **Field** | text, textarea, select, password with show toggle | Label above, hint, error; focus ring |
 | **Chip** | selectable (countries, topics) | Checked state uses a check mark, not color alone |

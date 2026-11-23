@@ -8,7 +8,7 @@ Frontend (`src/`), grouped by feature. `src/main.jsx` mounts `app/App.jsx`; `ind
 
 | Path | Responsibility |
 |---|---|
-| `app/` | `App.jsx` (routes), `Layout.jsx` (rail/drawer), `ErrorBoundary.jsx`, `architecture.test.js` (boundary rules) |
+| `app/` | `App.jsx` (routes), `Layout.jsx` (top bar, menu below 1024px), `ErrorBoundary.jsx`, `architecture.test.js` (boundary rules) |
 | `features/auth/` | `authService` (only caller of Supabase Auth), `AuthProvider`, `useAuth`, `ProtectedRoute`, `Login` |
 | `features/scan/` | `scanService` (only caller of `/api/gemini` for the scan tools: request, parse, dispatch to the tool's validator), `scanRun` (one scan start to finish), `scanHistory` (`scan_history` table and embeddings), `toolModules` (registry of the tool modules below), `NextSteps` |
 | `features/github-import/` | `githubImport` (only caller of `/api/github`, never throws), `RepoImport` (URL field and file picker) |
